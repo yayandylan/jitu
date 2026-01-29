@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-// FIX: Gunakan jalur manual (mundur 4 langkah)
 import connectDB from '@/lib/db'; 
 import User from '@/models/User';
 
@@ -8,39 +7,42 @@ export async function POST(req) {
   try {
     const { name, email, password } = await req.json();
 
-    // 1. Validasi Input
     if (!name || !email || !password) {
-      return NextResponse.json({ message: 'Mohon isi semua data' }, { status: 400 });
+      return NextResponse.json({ message: 'Data tidak lengkap' }, { status: 400 });
     }
 
     await connectDB();
 
-    // 2. Cek apakah email sudah ada
-    const userExists = await User.findOne({ email });
+    // 1. Cek email (gunakan lowercase agar sinkron)
+    const normalizedEmail = email.toLowerCase();
+    const userExists = await User.findOne({ email: normalizedEmail });
+    
     if (userExists) {
       return NextResponse.json({ message: 'Email sudah terdaftar' }, { status: 400 });
     }
 
-    // 3. Enkripsi Password
+    // 2. Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 4. Cek Admin (Logic Tambahan)
-    const userRole = email === 'admin@jitu.com' ? 'admin' : 'user';
+    // 3. Tentukan role
+    const userRole = normalizedEmail === 'admin@jitu.com' ? 'admin' : 'user';
 
-    // 5. Simpan User
-    await User.create({
+    // 4. Simpan dengan .save() (lebih stabil di serverless)
+    const newUser = new User({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       role: userRole,
-      credits: 500, // Bonus 500 Poin untuk pengguna baru!
+      credits: 500,
     });
+
+    await newUser.save();
 
     return NextResponse.json({ message: 'Registrasi Berhasil' }, { status: 201 });
 
   } catch (error) {
     console.error("Register Error:", error);
-    return NextResponse.json({ message: 'Terjadi kesalahan server: ' + error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Server Error: ' + error.message }, { status: 500 });
   }
 }
