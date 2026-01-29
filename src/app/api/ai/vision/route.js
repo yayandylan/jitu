@@ -3,11 +3,12 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
-import PointHistory from '@/models/PointHistory';
+// FIX: Hapus PointHistory, ganti ke Transaction
+import Transaction from '@/models/Transaction';
 import History from '@/models/History';
-import ToolConfig from '@/models/ToolConfig'; // Tambahkan ini untuk config dinamis
+import ToolConfig from '@/models/ToolConfig';
 
-// --- CONFIG DEFAULT (Fallback jika DB error) ---
+// --- CONFIG DEFAULT ---
 const TIMEOUT_SEC = 60; 
 
 // Helper: Ubah File ke Base64
@@ -57,7 +58,7 @@ export async function POST(req) {
     const user = await User.findById(decoded.userId);
     if (!user) return NextResponse.json({ message: 'User not found' }, { status: 404 });
 
-    // 2. PARSE DATA & TENTUKAN TIPE TOOL
+    // 2. PARSE DATA
     const formData = await req.formData();
     const file = formData.get('file');
     const lpLink = formData.get('lpLink');
@@ -65,112 +66,74 @@ export async function POST(req) {
 
     if (!file) return NextResponse.json({ message: 'File gambar wajib diupload.' }, { status: 400 });
 
-    // Mapping requestType ke Slug di Database ToolConfig
-    // Jika 'analisis-iklan-visual', kita pakai config milik 'analisis-iklan'
+    // Mapping requestType ke Slug Config
     const toolSlug = requestType === 'analisis-iklan-visual' ? 'analisis-iklan' : 'audit-iklan-lp';
-    
     const toolConfig = await ToolConfig.findOne({ slug: toolSlug });
     
-    // Validasi Tool Config
-    if (!toolConfig) return NextResponse.json({ message: 'Tool tidak ditemukan di database.' }, { status: 404 });
+    if (!toolConfig) return NextResponse.json({ message: 'Tool config not found.' }, { status: 404 });
     if (!toolConfig.isActive) return NextResponse.json({ message: 'Tool sedang maintenance.' }, { status: 503 });
     
-    // Cek Saldo User vs Harga Tool
+    // Cek Saldo
     if (user.credits < toolConfig.creditCost) {
       return NextResponse.json({ message: 'Saldo poin tidak cukup.' }, { status: 402 });
     }
 
-    // 3. PROSES DATA (Convert Image & Scrape)
+    // 3. PROSES INPUT
     let imageBase64 = await fileToBase64(file);
     let lpContent = "";
     
-    // Hanya scrape jika tool-nya Audit LP
     if (requestType === 'audit-iklan-lp') {
         if(!lpLink) return NextResponse.json({ message: 'Link Landing Page wajib diisi.' }, { status: 400 });
         lpContent = await scrapeLandingPage(lpLink);
     }
 
-    // 4. SIAPKAN PROMPT SUPER POWERFULL
+    // 4. SIAPKAN PROMPT (SESUAI TIPE REQUEST)
     let systemPrompt = "";
     let userContent = [];
 
     if (requestType === 'audit-iklan-lp') {
-        // --- MODE 1: AUDIT IKLAN VS LP (Message Match) ---
+        // --- MODE 1: AUDIT IKLAN VS LP ---
         systemPrompt = `
-            BERTINDAKLAH SEBAGAI: "World-Class CRO (Conversion Rate Optimization) Expert".
-            TUGAS: Lakukan audit forensik terhadap keselarasan (Message Match) antara GAMBAR IKLAN dan TEKS LANDING PAGE.
+            BERTINDAKLAH SEBAGAI: "World-Class CRO Expert".
+            TUGAS: Lakukan audit keselarasan (Message Match) antara GAMBAR IKLAN dan TEKS LANDING PAGE.
 
-            FOKUS AUDIT:
-            1. **Visual Continuity:** Apakah desain/warna iklan nyambung dengan LP? Atau user merasa 'salah kamar'?
-            2. **Headline Sync:** Apakah janji di Iklan langsung dijawab di Headline LP?
-            3. **Offer Consistency:** Apakah diskon/bonus di iklan benar-benar ada di LP?
+            FOKUS:
+            1. Visual Continuity (Warna/Desain nyambung?).
+            2. Headline Sync (Janji iklan dijawab di LP?).
+            3. Offer Consistency (Promo sesuai?).
 
-            FORMAT OUTPUT (MARKDOWN):
-            # 🕵️ Laporan Message Match Expert
-
-            > **SKOR KESELARASAN: [0-100]** • **VERDICT: [SEAMLESS / DISCONNECT / SPAMMY]**
-
-            ## 🩸 Diagnosa "Leaky Bucket" (Kebocoran Trafik)
-            *Saya menemukan [Jumlah] ketidakcocokan fatal yang membuat user bounce (keluar):*
-            1. **[Poin 1]:** [Jelaskan masalahnya dengan pedas]
-            2. **[Poin 2]:** [Jelaskan masalahnya]
-
-            ## 🧠 Psikologi User
-            *Saat user klik iklan ini, mereka mengharapkan X, tapi di LP mereka menemukan Y. Ini menyebabkan "Cognitive Dissonance".*
-
-            ## 🛠️ Rekomendasi Perbaikan (Actionable)
-            | Elemen | Masalah | Solusi Konkret |
-            | :--- | :--- | :--- |
-            | **Visual** | [Analisa] | [Saran] |
-            | **Copywriting** | [Analisa] | [Saran] |
-            | **Offer** | [Analisa] | [Saran] |
+            OUTPUT MARKDOWN:
+            # 🕵️ Laporan Message Match
+            > **SKOR: [0-100]**
+            ## 🩸 Diagnosa Masalah
+            ## 🛠️ Rekomendasi Perbaikan
         `;
         
         userContent = [
-            { type: "text", text: `Ini konten teks Landing Page: ${lpContent}` },
+            { type: "text", text: `Konten Teks LP: ${lpContent}` },
             { type: "image_url", image_url: { url: imageBase64 } }
         ];
 
     } else {
-        // --- MODE 2: ANALISA SCREENSHOT DASHBOARD (Media Buyer) ---
+        // --- MODE 2: ANALISA DASHBOARD ---
         systemPrompt = `
-            BERTINDAKLAH SEBAGAI: "Senior Media Buyer & Growth Hacker" yang mengelola budget $1M/bulan.
-            TUGAS: Baca screenshot dashboard iklan (Meta/TikTok/Google) yang diupload user.
+            BERTINDAKLAH SEBAGAI: "Senior Media Buyer Expert".
+            TUGAS: Baca screenshot dashboard iklan ini.
             
-            INSTRUKSI KHUSUS:
-            1. Ekstrak angka penting (CTR, CPC, CPM, ROAS, Spend) dari gambar.
-            2. Lakukan "Root Cause Analysis". Jangan cuma baca angka, tapi artikan maknanya.
+            INSTRUKSI:
+            1. Ekstrak angka (CTR, CPC, ROAS, Spend).
+            2. Lakukan "Root Cause Analysis".
             3. Berikan solusi teknis.
 
-            FORMAT OUTPUT (MARKDOWN):
-            # 🩺 Diagnosis Dashboard Iklan
-
+            OUTPUT MARKDOWN:
+            # 🩺 Diagnosis Dashboard
             ## 📊 Data Terbaca
-            *(Jika angka buram, saya estimasikan berdasarkan konteks)*
-            - **CTR:** [Angka]% | **CPC:** [Angka] | **ROAS:** [Angka]x
-
-            ---
-
-            ## 🧠 Deep Diagnostic (Bedah Masalah)
-            ### 1. Kesehatan Kreatif (CTR)
-            [Analisa: Apakah iklan ini "Stop Scroll" atau membosankan?]
-
-            ### 2. Kesehatan Kompetisi (CPM & CPC)
-            [Analisa: Apakah audience ini terlalu mahal? Apakah auction overlap?]
-
-            ### 3. Kesehatan Profit (ROAS)
-            [Analisa: Apakah kampanye ini layak di-scale atau harus dimatikan?]
-
-            ---
-
-            ## 🚀 Rekomendasi Tindakan (Next Step)
-            1. **Stop/Kill:** [Campaign/Adset mana yang harus dimatikan]
-            2. **Optimize:** [Apa yang harus diubah? Bid? Audience?]
-            3. **Scale:** [Jika ada yang bagus, bagaimana cara scale-nya?]
+            ## 🧠 Bedah Masalah (Deep Dive)
+            ## 🚀 Rekomendasi Tindakan (Stop/Scale/Optimize)
         `;
 
         userContent = [
-            { type: "text", text: "Analisa screenshot dashboard iklan ini. Berikan insight tajam." },
+            { type: "text", text: "Analisa dashboard ini secara detail." },
             { type: "image_url", image_url: { url: imageBase64 } }
         ];
     }
@@ -184,13 +147,12 @@ export async function POST(req) {
         "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://jitudigital.com", 
       },
       body: JSON.stringify({
-        // Gunakan model dari DB, atau fallback ke gpt-4o (Vision)
         model: toolConfig.aiModel || "openai/gpt-4o", 
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent }
         ],
-        temperature: 0.5, // Sedikit lebih rendah agar analisa lebih objektif/faktual
+        temperature: 0.5,
         max_tokens: 2000
       })
     });
@@ -198,8 +160,8 @@ export async function POST(req) {
     const aiData = await aiResponse.json();
     
     if (!aiResponse.ok || !aiData.choices) {
-      console.error("AI Provider Error:", aiData);
-      throw new Error(aiData.error?.message || "Gagal mendapatkan analisa dari AI.");
+      console.error("AI Error:", aiData);
+      throw new Error(aiData.error?.message || "Gagal analisa AI.");
     }
 
     const analysisResult = aiData.choices[0].message.content;
@@ -210,16 +172,16 @@ export async function POST(req) {
     user.credits -= toolConfig.creditCost;
     await user.save();
 
-    // B. Catat Point History
-    await PointHistory.create({
+    // B. FIX: Catat Transaksi (Pengganti PointHistory)
+    await Transaction.create({
       userId: user._id,
       type: 'out',
       amount: toolConfig.creditCost,
-      description: `Vision AI: ${toolConfig.name}`
+      description: `Vision AI: ${toolConfig.name}`,
+      status: 'success'
     });
 
-    // C. Simpan Hasil ke History (Sesuai Tipe Tool)
-    // Supaya di Frontend bisa difilter dengan benar
+    // C. Simpan History
     const historyToolType = requestType === 'analisis-iklan-visual' ? 'analisis-iklan' : 'audit-iklan-lp';
     const historyTitle = requestType === 'analisis-iklan-visual' ? `Audit Dashboard: ${file.name}` : `Sync Check: ${file.name}`;
 

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
-import PointHistory from '@/models/PointHistory';
+// FIX: Gunakan Transaction, bukan PointHistory
+import Transaction from '@/models/Transaction';
 
 export async function GET(req) {
   try {
@@ -14,10 +15,10 @@ export async function GET(req) {
 
     const limit = Number(new URL(req.url).searchParams.get('limit')) || 10;
 
-    // Ambil history tipe 'out' (penggunaan) atau 'reduce' (dikurangi admin)
-    const history = await PointHistory.find({ 
+    // Ambil history transaksi tipe 'out' (penggunaan tools)
+    const history = await Transaction.find({ 
         userId: decoded.userId,
-        type: { $in: ['out', 'reduce'] } // Hanya tampilkan pengeluaran
+        type: 'out' // Filter hanya pengeluaran
     })
     .sort({ createdAt: -1 })
     .limit(limit);
