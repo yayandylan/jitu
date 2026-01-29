@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db'; // Di sini cukup 3 tingkat
-import PromoPackage from '@/models/PromoPackage';
+import connectDB from '@/lib/db';
+// FIX: Import model PromoPackage yang baru dibuat
+import PromoPackage from '@/models/PromoPackage'; 
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     await connectDB();
-    // Ambil paket yang akan ditampilkan ke user
-    const packages = await PromoPackage.find().sort({ basePoints: 1 });
+    
+    // Ambil paket aktif, urutkan berdasarkan harga termurah
+    const packages = await PromoPackage.find({ isActive: true }).sort({ price: 1 });
+    
+    // Jika kosong (belum disetting admin), return array kosong (frontend akan pakai default)
     return NextResponse.json({ success: true, packages });
+
   } catch (error) {
-    return NextResponse.json({ success: false }, { status: 500 });
+    console.error("Package API Error:", error);
+    return NextResponse.json({ success: false, packages: [] });
   }
 }
