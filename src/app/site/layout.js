@@ -45,15 +45,15 @@ export default function DashboardLayout({ children }) {
   };
 
   const menuItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
+    { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     { section: 'TOOLS UTAMA' },
-    { name: 'Riset Produk', href: '/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
-    { name: 'Validasi Market', href: '/tools/validasi-market', icon: <Target size={20} />, isFree: false },
-    { name: 'Magic Ad Script', href: '/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: false },
-    { name: 'Landing Page Builder', href: '/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
-    { name: 'Audit Funnel', href: '/tools/ad-review', icon: <ScanEye size={20} />, isFree: false },
-    { name: 'Analisis Iklan', href: '/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },
-    { name: 'Kalkulator Ads', href: '/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: false },
+    { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
+    { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: false },
+    { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: false },
+    { name: 'Landing Page Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
+    { name: 'Audit Funnel', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, isFree: false },
+    { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },
+    { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: false },
     { section: 'COMING SOON' },
     { name: 'Generate Gambar', href: '#', icon: <ImageIcon size={20} />, disabled: true, badge: 'SOON', isFree: false },
   ];
@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }) {
   if (isAdmin) {
     menuItems.push(
       { section: 'ADMINISTRATOR' },
-      { name: 'Admin Panel', href: '/admin', icon: <ShieldCheck size={20} />, adminOnly: true, isFree: true }
+      { name: 'Admin Panel', href: '/site/admin', icon: <ShieldCheck size={20} />, adminOnly: true, isFree: true }
     );
   }
 
@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }) {
     }
     if (!item.isFree && !userData?.isPremium) {
       e.preventDefault();
-      router.push('/topup');
+      router.push('/site/topup');
       setSidebarOpen(false);
     }
   };
