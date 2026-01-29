@@ -2,109 +2,127 @@
 import ReactMarkdown from 'react-markdown';
 import { useState, useEffect } from 'react';
 import remarkGfm from 'remark-gfm'; 
-import { Search, Loader2, TrendingUp, BrainCircuit, Sparkles, Trophy, Target } from 'lucide-react';
-// FIX: Gunakan absolute import yang lebih rapi
-import ToolHistory from '@/components/ToolHistory'; 
+import { Search, Loader2, TrendingUp, BrainCircuit, Sparkles, Trophy, Save, Trash2, Clock } from 'lucide-react';
+import ToolHistory from '@/components/ToolHistory'; // Pastikan komponen ini ada
 
 export default function RisetProdukPage() {
   const [idea, setIdea] = useState('');
   const [skills, setSkills] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
+  
+  // State Data
   const [history, setHistory] = useState([]);
   const [config, setConfig] = useState({ creditCost: 50, isActive: true });
   const [loadingConfig, setLoadingConfig] = useState(true);
 
-  // 1. FUNGSI AMBIL HISTORY DARI DATABASE
-  const fetchHistory = async () => {
+  // 1. FUNGSI LOAD DATA (Config & History)
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/history?tool=riset-produk');
-      const data = await res.json();
-      if (data.data) setHistory(data.data);
+        // A. Ambil Config Tool (Harga Poin)
+        const confRes = await fetch('/api/admin/tools');
+        if(confRes.ok) {
+            const tools = await confRes.json();
+            const myTool = tools.find(t => t.slug === 'riset-produk');
+            if (myTool) setConfig(myTool);
+        }
+
+        // B. Ambil History User untuk Tool Ini
+        const histRes = await fetch('/api/user/history?tool=riset-produk');
+        if(histRes.ok) {
+            const histData = await histRes.json();
+            setHistory(histData.data || []);
+        }
     } catch (err) {
-      console.error("Gagal load history dari database");
+        console.error("Gagal memuat data:", err);
+    } finally {
+        setLoadingConfig(false);
     }
   };
 
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch('/api/admin/tools');
-        const data = await res.json();
-        const myTool = data.find(t => t.slug === 'riset-produk');
-        if (myTool) setConfig(myTool);
-      } catch (err) { console.error("Gagal load config"); } finally { setLoadingConfig(false); }
-    };
-    
-    fetchConfig();
-    fetchHistory(); // Panggil fungsi ambil history database
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
+  // 2. LOGIKA UTAMA (Generate AI)
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!idea || !skills || !config.isActive) return;
     setLoading(true); setResult('');
 
     try {
-      // PROSES ANALISA AI
+      // Step A: Request ke AI Endpoint
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'riset-produk', data: { idea, skills } }),
+        body: JSON.stringify({ 
+            type: 'riset-produk', 
+            data: { idea, skills } 
+        }),
       });
 
       const data = await res.json();
-      if (res.status === 402) { alert("Poin tidak cukup!"); setLoading(false); return; }
-      if (!res.ok) throw new Error(data.message);
       
+      if (res.status === 402) { 
+          alert("Poin tidak cukup! Silakan Top Up."); 
+          setLoading(false); 
+          return; 
+      }
+      
+      if (!res.ok) throw new Error(data.message || "Gagal generate");
+      
+      // Step B: Tampilkan Hasil
       setResult(data.result);
 
-      // 2. SIMPAN HASIL KE DATABASE (Bukan LocalStorage)
-      // Karena backend AI biasanya sudah menyimpan history secara otomatis (jika kita setting di sana),
-      // kita perlu cek apakah API AI sudah melakukan saving.
-      // Jika API AI Bapak SUDAH menyimpan history otomatis, bagian fetch POST ini bisa DIHAPUS agar tidak double.
-      // Namun, jika API AI Bapak murni hanya return text, maka kode di bawah ini WAJIB ada.
-      
-      await fetch('/api/history', {
+      // Step C: Simpan ke Database History (PENTING!)
+      // Kita simpan manual agar frontend langsung update tanpa reload
+      const saveRes = await fetch('/api/user/history', { // Perbaikan path API history (POST)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toolType: 'riset-produk',
-          title: idea.substring(0, 40), // Judul history diambil dari ide awal
+          title: idea.substring(0, 40) + "...", // Judul otomatis
           inputData: { idea, skills },
           resultData: data.result 
         })
       });
 
-      // Refresh riwayat agar data terbaru muncul di sidebar
-      fetchHistory();
+      if(saveRes.ok) {
+          // Refresh list history agar data baru muncul di sidebar
+          const histRes = await fetch('/api/user/history?tool=riset-produk');
+          const histData = await histRes.json();
+          setHistory(histData.data || []);
+      }
 
-    } catch (err) { alert("Gagal: " + err.message); } finally { setLoading(false); }
+    } catch (err) { 
+        alert("Terjadi kesalahan: " + err.message); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
+  // 3. LOGIKA INTERAKSI HISTORY
   const handleSelectHistory = (item) => {
-    // Restore data dari history yang dipilih
+    // Restore Input
     if (item.inputData) {
         setIdea(item.inputData.idea || ''); 
         setSkills(item.inputData.skills || '');
     }
-    // Handle resultData (bisa object {text: ...} atau string langsung)
-    const output = item.resultData?.text || item.resultData;
-    setResult(output);
+    // Restore Output (Support format lama/baru)
+    const output = typeof item.resultData === 'object' ? item.resultData.text : item.resultData;
+    setResult(output || '');
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 3. FUNGSI HAPUS DARI DATABASE
   const handleDeleteHistory = async (id) => {
-    if(!confirm("Hapus riwayat riset ini?")) return;
+    if(!confirm("Hapus riwayat ini permanen?")) return;
     try {
-      const res = await fetch(`/api/history?id=${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/user/history?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
-        fetchHistory(); // Refresh list setelah hapus
+        // Update state lokal biar cepat (tanpa fetch ulang)
+        setHistory(prev => prev.filter(h => h._id !== id));
       }
     } catch (err) {
-      alert("Gagal menghapus riwayat");
+      alert("Gagal menghapus");
     }
   };
 
@@ -157,7 +175,7 @@ export default function RisetProdukPage() {
               className={`w-full text-white py-5 px-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-lg transition-all flex items-center justify-center gap-3 group active:scale-95 ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}
             >
               {loading ? (
-                <><Loader2 className="animate-spin w-5 h-5" /> Menganalisa...</>
+                <><Loader2 className="animate-spin w-5 h-5" /> Sedang Menganalisa...</>
               ) : (
                 <><TrendingUp className="w-5 h-5 group-hover:scale-110 transition-transform" /> Mulai Riset AI
                   <span className="bg-blue-800/40 text-[9px] font-bold py-1 px-2.5 rounded-lg text-blue-50 ml-1">-{config.creditCost} Poin</span>
@@ -167,26 +185,38 @@ export default function RisetProdukPage() {
           </form>
         </div>
 
-        {/* HASIL GENERATE */}
+        {/* HASIL GENERATE (PREMIUM UI) */}
         {result && (
-            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/5 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Header Hasil */}
+                <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white border-b border-slate-800">
                     <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                         <div className="bg-emerald-500/20 p-1.5 rounded-lg"><Trophy className="w-4 h-4 text-emerald-400" /></div>
-                        Blueprint Produk
+                        Blueprint Produk Winning
                     </h3>
+                    <div className="flex gap-2">
+                        <button onClick={() => navigator.clipboard.writeText(result)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors" title="Salin Teks">
+                            <Save size={16} />
+                        </button>
+                    </div>
                 </div>
+                
+                {/* Konten Markdown */}
                 <div className="p-8 md:p-12 prose prose-slate prose-sm max-w-none 
-                    prose-headings:font-bold prose-headings:text-slate-900 
+                    prose-headings:font-bold prose-headings:text-slate-900 prose-headings:tracking-tight
+                    prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-4
                     prose-p:text-slate-600 prose-p:leading-loose
-                    prose-strong:text-blue-700 prose-strong:font-black">
+                    prose-strong:text-blue-600 prose-strong:font-black
+                    prose-ul:list-disc prose-ul:pl-5 prose-li:marker:text-blue-300
+                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-xl prose-blockquote:not-italic prose-blockquote:text-slate-700
+                ">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                 </div>
             </div>
         )}
       </div>
 
-      {/* KOLOM KANAN: HISTORY (Sinkron Database) */}
+      {/* KOLOM KANAN: HISTORY */}
       <div className="lg:col-span-1">
         <div className="sticky top-8">
             <ToolHistory 
