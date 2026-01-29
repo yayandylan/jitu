@@ -5,7 +5,7 @@ import {
   ImageIcon, BarChart3, Calculator, 
   CheckCircle2, ArrowRight, Flame, 
   Layers, Gift, Crown, Mail, Instagram, MessageSquare, 
-  PlayCircle, Plus, Minus, Globe, Shield
+  PlayCircle, Plus, Minus, Globe
 } from 'lucide-react';
 import Link from 'next/link';
 import JsonLd from '@/components/JsonLd';
@@ -46,7 +46,6 @@ export default function LandingPage() {
           
           {/* LOGO */}
           <div className="flex items-center gap-2.5 group cursor-pointer">
-            {/* FIX: Logo Biru (Jitu Banget) */}
             <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-600/20 group-hover:scale-105 transition-transform">
               <Zap className="w-5 h-5 text-white fill-white" />
             </div>
@@ -66,7 +65,7 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* MOBILE ACTIONS (Langsung Tampil) */}
+          {/* MOBILE ACTIONS */}
           <div className="flex md:hidden items-center gap-3">
             <Link href="/login" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:text-blue-600 px-2">
               Masuk
@@ -88,9 +87,10 @@ export default function LandingPage() {
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">New Engine v2.0</span>
         </div>
 
+        {/* FIX: Menambahkan pr-4 (padding-right) pada PROFIT agar huruf T tidak terpotong efek italic */}
         <h1 className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black text-slate-900 leading-[0.9] mb-8 uppercase italic tracking-tighter">
-          IKLAN <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">PROFIT</span><br/>
-          ADALAH JITU.
+          IKLAN <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 pr-4">PROFIT</span><br/>
+          PASTI JITU.
         </h1>
         
         <p className="text-sm md:text-lg text-slate-500 mb-10 max-w-2xl mx-auto font-medium leading-relaxed px-4 text-pretty">
@@ -149,7 +149,6 @@ export default function LandingPage() {
                 </div>
             </div>
 
-            {/* Feature Cards */}
             <BentoCard icon={<Search/>} title="Riset Produk" desc="Cari Winning Product." color="text-blue-600" bg="bg-blue-50" />
             <BentoCard icon={<PenTool/>} title="Magic Script" desc="Copywriting Hypnotic." color="text-indigo-600" bg="bg-indigo-50" />
             
@@ -194,7 +193,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- 6. FAQ (New Section) --- */}
+      {/* --- 6. FAQ --- */}
       <section id="faq" className="py-24 bg-slate-50 relative border-t border-slate-200">
         <div className="max-w-3xl mx-auto px-6">
           <div className="text-center mb-16 space-y-3">
@@ -210,12 +209,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- 7. FOOTER (Lengkap & Professional) --- */}
+      {/* --- 7. FOOTER --- */}
       <footer className="bg-[#0F172A] text-white pt-20 pb-10 relative overflow-hidden border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-            
-            {/* Brand Column */}
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-600 p-2 rounded-xl"><Zap className="w-5 h-5 text-white fill-white" /></div>
@@ -231,7 +228,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Links Column 1 */}
             <div>
                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-6">Tools Utama</h4>
                 <ul className="space-y-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
@@ -242,7 +238,6 @@ export default function LandingPage() {
                 </ul>
             </div>
 
-            {/* Links Column 2 */}
             <div>
                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-6">Perusahaan</h4>
                 <ul className="space-y-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
@@ -253,7 +248,6 @@ export default function LandingPage() {
                 </ul>
             </div>
 
-            {/* Legal Column */}
             <div>
                 <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white mb-6">Legal</h4>
                 <ul className="space-y-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
@@ -262,7 +256,6 @@ export default function LandingPage() {
                     <li><Link href="#" className="hover:text-blue-500 transition-colors">Refund Policy</Link></li>
                 </ul>
             </div>
-
           </div>
 
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
