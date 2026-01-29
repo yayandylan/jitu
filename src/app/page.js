@@ -109,7 +109,7 @@ export default function LandingPage() {
         </div>
         <div className="flex gap-12 animate-marquee whitespace-nowrap opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
             {/* List Teknologi & Output yang "Jitu Banget" */}
-            {['OpenAI GPT-4o', 'Claude 3.5 Sonnet', 'Gemini Pro 1.5', 'DALL-E 3', 'High CTR', 'Winning Product', 'Max ROAS', 'Low CPC', 'Viral Content', 'Auto Scale'].map((item, i) => (
+            {['Powerfull AI', 'Jitu Speed', 'Best Perform', 'High Convertion', 'High CTR', 'Winning Product', 'Max ROAS', 'Low CPC', 'Viral Content', 'Auto Scale'].map((item, i) => (
                 <span key={i} className="text-lg font-black text-slate-300 uppercase italic tracking-tighter flex items-center gap-2">
                    <Zap size={12} className="text-blue-400 fill-blue-400" /> {item}
                 </span>
