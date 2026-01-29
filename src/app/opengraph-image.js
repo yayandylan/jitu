@@ -10,14 +10,14 @@ export const size = {
 export const contentType = 'image/png';
 
 export default async function Image() {
-  // Kita fetch font Poppins biar desainnya senada dengan website
-  // (Menggunakan fetch standard ke Google Fonts)
+  // FIX: Langsung gunakan String URL (Jangan pakai new URL)
+  // Ini mencegah Webpack mencoba memproses link ini sebagai modul lokal
   const fontSemiBold = await fetch(
-    new URL('https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2', import.meta.url)
+    'https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLEj6Z1xlFQ.woff2'
   ).then((res) => res.arrayBuffer());
 
   const fontBlack = await fetch(
-    new URL('https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLBT5Z1xlFQ.woff2', import.meta.url)
+    'https://fonts.gstatic.com/s/poppins/v20/pxiByp8kv8JHgFVrLBT5Z1xlFQ.woff2'
   ).then((res) => res.arrayBuffer());
 
   return new ImageResponse(
@@ -74,7 +74,7 @@ export default async function Image() {
             zIndex: 10,
           }}
         >
-          {/* Icon Petir (SVG simulated with div for simplicity in OG) */}
+          {/* Icon Petir Simulated */}
           <div
             style={{
               display: 'flex',
@@ -87,6 +87,7 @@ export default async function Image() {
               boxShadow: '0 20px 50px rgba(37, 99, 235, 0.5)',
             }}
           >
+            {/* SVG sebagai text string agar aman di OG */}
             <svg
               width="40"
               height="40"
