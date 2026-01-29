@@ -30,8 +30,8 @@ export default function PaymentPage() {
     if (!params.id) return;
     setLoading(true);
     try {
-      // FIX: Menggunakan 'transactions' (jamak) sesuai nama folder API backend
-      const res = await fetch(`/api/transactions/${params.id}`);
+      // FIX: Gunakan path 'transaction' (Tunggal) sesuai folder backend Bapak
+      const res = await fetch(`/api/transaction/${params.id}`);
       const data = await res.json();
       if(data.transaction) setTrx(data.transaction);
     } catch (err) { 
@@ -62,7 +62,9 @@ export default function PaymentPage() {
     </div>
   );
 
-  const { main, unique } = formatPriceParts(trx?.totalPrice);
+  // FIX: Support field 'price' (model baru) atau 'totalPrice' (model lama/mapping)
+  const displayPrice = trx.price || trx.totalPrice || 0;
+  const { main, unique } = formatPriceParts(displayPrice);
 
   return (
     <div className="max-w-xl mx-auto py-10 px-4 md:px-0 text-slate-900 font-poppins antialiased">
@@ -83,7 +85,7 @@ export default function PaymentPage() {
           <div className="relative z-10 space-y-4">
             <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-2">
                 {trx?.status === 'success' ? <CheckCircle size={14}/> : <Hash size={14}/>}
-                {trx?.status === 'success' ? 'Pembayaran Berhasil' : 'Total Nominal Transfer'}
+                {trx?.status === 'success' ? 'Pembayaran Lunas' : 'Total Nominal Transfer'}
             </p>
             
             <div className="flex flex-col items-center">
@@ -168,7 +170,7 @@ export default function PaymentPage() {
                             <li>Pilih <span className="font-bold">Antar Bank</span> jika bukan pengguna BCA.</li>
                             <li>Masukkan Kode Bank <span className="font-bold bg-white px-1 border rounded">014</span> (jika diminta).</li>
                             <li>Masukkan No. Rekening <span className="font-bold select-all">{BANK_INFO.number}</span>.</li>
-                            <li>Masukkan Nominal <span className="font-bold text-blue-600 italic">Rp {trx?.totalPrice.toLocaleString('id-ID')}</span> (harus sama persis).</li>
+                            <li>Masukkan Nominal <span className="font-bold text-blue-600 italic">Rp {displayPrice.toLocaleString('id-ID')}</span> (harus sama persis).</li>
                         </ol>
                     </div>
                     {/* ATM */}
@@ -185,7 +187,7 @@ export default function PaymentPage() {
           {/* ACTION BUTTONS */}
           <div className="space-y-3 pt-2">
               <button 
-                  onClick={() => window.open(`https://wa.me/${WA_ADMIN}?text=Halo Admin Jitu, saya sudah transfer tepat Rp ${trx?.totalPrice.toLocaleString('id-ID')} untuk Order ID: ${trx?._id.slice(-6).toUpperCase()}. Mohon diproses.`, '_blank')} 
+                  onClick={() => window.open(`https://wa.me/${WA_ADMIN}?text=Halo Admin Jitu, saya sudah transfer tepat Rp ${displayPrice.toLocaleString('id-ID')} untuk Order ID: ${trx?._id.slice(-6).toUpperCase()}. Mohon diproses.`, '_blank')} 
                   className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black py-4 rounded-[1.2rem] flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/20 text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95"
               >
                   <MessageCircle size={18} fill="white" /> Konfirmasi WhatsApp
@@ -200,11 +202,11 @@ export default function PaymentPage() {
               </button>
           </div>
 
-          {/* FOOTER INFO */}
+          {/* FOOTER INFO: VERIFIKASI MANUAL */}
           <div className="flex gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50 items-start">
              <div className="shrink-0 text-blue-600 mt-0.5 bg-white p-1.5 rounded-full shadow-sm"><Info size={14}/></div>
              <p className="text-[10px] text-blue-900/70 font-medium leading-relaxed">
-                <strong className="text-blue-700 uppercase tracking-tight">Sistem Otomatis:</strong> Saldo Poin akan masuk dalam <span className="font-bold text-blue-900 border-b border-blue-300">1-5 menit</span> setelah transfer Anda terverifikasi oleh mutasi bank.
+                <strong className="text-blue-700 uppercase tracking-tight">Verifikasi Manual:</strong> Saldo Poin akan masuk dalam <span className="font-bold text-blue-900 border-b border-blue-300">1-5 menit</span> setelah Anda melakukan konfirmasi pembayaran via WhatsApp Admin.
              </p>
           </div>
         </div>

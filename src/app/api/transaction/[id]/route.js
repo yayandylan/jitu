@@ -12,7 +12,7 @@ import Notification from '@/models/Notification';
 export const dynamic = 'force-dynamic';
 
 // =================================================================
-// 1. GET METHOD: Untuk User melihat Invoice (Sinkron Kode Unik)
+// 1. GET METHOD: User Melihat Invoice / Tagihan
 // =================================================================
 export async function GET(req, { params }) {
   try {
@@ -23,19 +23,21 @@ export async function GET(req, { params }) {
     if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    const userId = decoded.userId;
-
-    // Cari transaksi yang benar-benar milik user tersebut
-    const transaction = await Transaction.findOne({
-      _id: id,
-      userId: userId
-    });
+    
+    // Cari transaksi berdasarkan ID
+    // Kita hapus filter userId agar Admin juga bisa melihat detail transaksi ini jika perlu
+    const transaction = await Transaction.findById(id);
 
     if (!transaction) {
       return NextResponse.json({ message: 'Transaksi tidak ditemukan' }, { status: 404 });
     }
 
-    // Mengembalikan data transaksi lengkap (termasuk uniqueCode & totalPrice)
+    // Security tambahan: Jika bukan admin DAN bukan pemilik transaksi, tolak.
+    if (decoded.role !== 'admin' && transaction.userId.toString() !== decoded.userId) {
+        return NextResponse.json({ message: 'Forbidden Access' }, { status: 403 });
+    }
+
+    // Mengembalikan data transaksi lengkap
     return NextResponse.json({ transaction });
 
   } catch (error) {
@@ -45,64 +47,79 @@ export async function GET(req, { params }) {
 }
 
 // =================================================================
-// 2. PUT METHOD: Untuk Admin Approve & Kirim Notif Otomatis
+// 2. PUT METHOD: Admin Approve Transaksi & Kirim Notif
 // =================================================================
 export async function PUT(req, { params }) {
   try {
+    const token = cookies().get('token')?.value;
+    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
+    // 1. CEK APAKAH ADMIN? (Sangat Penting!)
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    if (decoded.role !== 'admin') {
+        return NextResponse.json({ message: 'Hanya Admin yang bisa approve!' }, { status: 403 });
+    }
+
     await connectDB();
     const { id } = params;
-    const { status } = await req.json();
+    const { status } = await req.json(); // status: 'success' atau 'failed'
 
-    console.log(`🚀 [START] Approval Transaksi: ${id}`);
+    console.log(`🚀 [ADMIN] Processing Transaksi: ${id} -> ${status}`);
 
     const transaction = await Transaction.findById(id);
     if (!transaction) return NextResponse.json({ message: "Transaksi tidak ditemukan" }, { status: 404 });
 
-    // Cek agar tidak terjadi double-topup jika status sudah success
+    // 2. IDEMPOTENCY CHECK (Cek biar gak double saldo)
     if (transaction.status === 'success') {
         return NextResponse.json({ message: "Transaksi ini sudah sukses sebelumnya" }, { status: 400 });
     }
 
-    // A. UPDATE STATUS TRANSAKSI
+    // A. UPDATE STATUS
     transaction.status = status;
     await transaction.save();
 
     // B. JIKA STATUS BERUBAH JADI SUCCESS (APPROVE)
     if (status === 'success') {
         
-        // 1. UPDATE SALDO USER
         const user = await User.findById(transaction.userId);
+        
         if (user) {
+            // 1. UPDATE SALDO USER
             user.credits = (user.credits || 0) + transaction.amount; 
+            
+            // 2. UPGRADE KE PREMIUM (Otomatis)
+            user.isPremium = true; 
+            
             await user.save();
-            console.log(`💰 Saldo User ${user.name} bertambah. Total: ${user.credits}`);
-        }
+            console.log(`💰 Saldo User ${user.name} bertambah +${transaction.amount}. Status Premium: ON`);
 
-        // 2. KIRIM NOTIFIKASI PERSONAL KE USER
-        try {
-            const userIdObject = new mongoose.Types.ObjectId(transaction.userId);
+            // 3. KIRIM NOTIFIKASI PERSONAL KE USER
+            try {
+                // Pastikan transaction.price ada (field di DB bernama 'price', bukan 'totalPrice')
+                const displayPrice = transaction.price || transaction.totalPrice || 0;
 
-            await Notification.create({
-                target: 'user',
-                userId: userIdObject,
-                transactionId: transaction._id, // Hubungkan ke transaksi
-                category: 'billing',            // Kategori pembayaran
-                type: 'success',
-                title: 'Top Up Berhasil! 💎',
-                message: `Hore! Pembayaran Rp ${transaction.totalPrice.toLocaleString('id-ID')} telah dikonfirmasi. Saldo ${transaction.amount.toLocaleString('id-ID')} poin sudah aktif.`,
-                isRead: false,
-                createdAt: new Date()
-            });
+                await Notification.create({
+                    target: 'user',
+                    userId: user._id,
+                    transactionId: transaction._id, 
+                    category: 'billing',            
+                    type: 'success',
+                    title: 'Top Up Berhasil! 💎',
+                    message: `Pembayaran Rp ${displayPrice.toLocaleString('id-ID')} diterima. Saldo ${transaction.amount.toLocaleString('id-ID')} poin masuk & Akun Premium Aktif!`,
+                    isRead: false,
+                    createdAt: new Date()
+                });
 
-            console.log("🔔 Notifikasi sukses dikirim ke user.");
-        } catch (errNotif) {
-            console.error("❌ Gagal membuat notifikasi:", errNotif);
+                console.log("🔔 Notifikasi sukses dikirim ke user.");
+            } catch (errNotif) {
+                console.error("❌ Gagal membuat notifikasi:", errNotif);
+            }
         }
     }
 
     return NextResponse.json({ 
         success: true, 
-        message: status === 'success' ? "Transaksi Berhasil Di-Approve" : "Status Diperbarui" 
+        message: status === 'success' ? "Transaksi Berhasil Di-Approve & Saldo Masuk" : "Status Diperbarui" 
     });
 
   } catch (error) {

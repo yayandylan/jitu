@@ -1,39 +1,40 @@
 import mongoose from 'mongoose';
 
 const HistorySchema = new mongoose.Schema({
-  // KUNCI UTAMA: Menyimpan ID user agar riwayat tidak tertukar
+  // KUNCI UTAMA: Relasi ke User
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'user', 
+    ref: 'User', // FIX: Huruf Besar 'User' agar sesuai dengan model User.js
     required: true 
   },
-  // Untuk membedakan ini history dari tool mana (Riset, Copywriting, dll)
+  
+  // Jenis Tool (slug), misal: 'riset-produk', 'magic-ad-script'
   toolType: { 
     type: String, 
-    required: true 
+    required: true,
+    index: true // Tambahkan index biar query pencarian cepat
   },
-  // Judul untuk ditampilkan di sidebar (misal: Nama Produk)
+  
+  // Judul riwayat (opsional, untuk tampilan di sidebar)
   title: { 
     type: String, 
     default: "Hasil Generate" 
   },
-  // Data yang diinput user (disimpan dalam bentuk Object agar fleksibel)
+  
+  // Input User (Disimpan fleksibel bisa string/object)
   inputData: { 
-    type: Object, 
+    type: mongoose.Schema.Types.Mixed, // 'Mixed' lebih aman untuk JSON dinamis
     required: true 
   },
-  // Hasil generate dari AI (bisa String atau Object)
+  
+  // Hasil Output AI
   resultData: { 
-    type: Object, 
+    type: mongoose.Schema.Types.Mixed, 
     required: true 
-  },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
   }
+}, { 
+  timestamps: true // Otomatis membuat createdAt dan updatedAt
 });
 
-// Pencegahan error "OverwriteModelError" di Next.js (Hot Reload)
-const History = mongoose.models.history || mongoose.model('history', HistorySchema);
-
-export default History;
+// FIX: Gunakan 'History' (Huruf Besar) agar konsisten satu aplikasi
+export default mongoose.models.History || mongoose.model('History', HistorySchema);

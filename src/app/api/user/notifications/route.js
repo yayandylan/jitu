@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import mongoose from 'mongoose'; 
 import connectDB from '@/lib/db'; 
 import Notification from '@/models/Notification';
-import User from '@/models/User'; // Wajib import model User
+import User from '@/models/User'; // Wajib import model User (Huruf Besar)
 
 export const dynamic = 'force-dynamic';
 
@@ -20,33 +20,39 @@ export async function GET(req) {
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     const userId = decoded.userId;
 
-    // 3. Ambil Status User (Free/Premium)
+    // 3. Ambil Status User (Free/Premium) untuk Filter Broadcast
     const user = await User.findById(userId).select('isPremium');
+    
+    // Jika user tidak ditemukan di DB (mungkin terhapus), return kosong
     if (!user) return NextResponse.json([]);
     
     const statusUser = user.isPremium ? 'premium' : 'free';
     const userObjectId = new mongoose.Types.ObjectId(userId);
 
-    // 4. Query Segmentasi (Filter Berdasarkan Group)
+    // 4. Query Cerdas: Gabungkan Broadcast + Personal
     const notifications = await Notification.find({
       $or: [
+        // A. Broadcast (Target Semua)
         { 
           target: 'all', 
-          targetGroup: { $in: ['all', statusUser] } // Hanya ambil pesan 'all' atau yang cocok dengan status user
+          // Ambil jika targetGroup-nya 'all' ATAU sesuai status user (free/premium)
+          targetGroup: { $in: ['all', statusUser] } 
         },                      
+        // B. Personal (Target Khusus User Ini)
         { 
           target: 'user', 
           userId: userObjectId 
-        } // Pesan pribadi tetap muncul
+        } 
       ]
     })
-      .sort({ createdAt: -1 })
-      .limit(20);
+      .sort({ createdAt: -1 }) // Urutkan dari yang terbaru
+      .limit(30); // Batasi 30 notifikasi terakhir agar ringan
 
     return NextResponse.json(notifications);
 
   } catch (error) {
     console.error("Error Fetch Notif:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return array kosong agar UI tidak error jika backend bermasalah
+    return NextResponse.json([], { status: 500 });
   }
 }

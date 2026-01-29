@@ -4,28 +4,30 @@ const NotificationSchema = new mongoose.Schema({
   // --- TARGET AUDIENCE ---
   target: { 
     type: String, 
-    enum: ['all', 'user'], // 'all' untuk Broadcast, 'user' untuk Notif Personal
+    enum: ['all', 'user'], // 'all' = Broadcast, 'user' = Personal
+    required: true,
     default: 'all' 
   },
   
-  // --- SEGMENTASI AUDIENS ---
+  // --- SEGMENTASI (Khusus Broadcast) ---
   targetGroup: { 
     type: String, 
     enum: ['all', 'free', 'premium'], 
     default: 'all' 
   },
 
+  // --- TARGET PERSONAL ---
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    default: null // Diisi jika target = 'user'
+    ref: 'User', // Pastikan Referensi Huruf Besar (User.js)
+    default: null 
   },
 
-  // --- KONEKSI FITUR (TAMBAHAN PENTING) ---
+  // --- RELASI TRANSAKSI ---
   transactionId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Transaction',
-    default: null // Berguna untuk notif "Top Up Berhasil"
+    ref: 'Transaction', // Pastikan Referensi Huruf Besar (Transaction.js)
+    default: null 
   },
 
   // --- KONTEN ---
@@ -33,30 +35,35 @@ const NotificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
   link: { type: String, default: null }, 
   
-  // Kategori untuk membedakan ikon di UI (Academy, Billing, System, Promo)
+  // Kategori (Menentukan Icon di UI)
   category: {
     type: String,
-    enum: ['billing', 'academy', 'promo', 'system'],
+    enum: ['billing', 'academy', 'promo', 'system', 'security'],
     default: 'system'
   },
 
-  // --- TAMPILAN ---
+  // Tipe Styling (Menentukan Warna Background/Border)
   type: { 
     type: String, 
     enum: ['info', 'success', 'warning', 'danger'], 
     default: 'info' 
   },
   
-  // --- STATUS & LIVE TIME ---
+  // --- STATUS ---
   isRead: { type: Boolean, default: false }, 
   
-  // Masa berlaku notifikasi (Misal: Notif promo hangus dalam 3 hari)
+  // Tanggal Kadaluarsa (Auto Delete)
   expiresAt: { type: Date, default: null },
 
-  createdAt: { type: Date, default: Date.now }
+}, { 
+  timestamps: true // Otomatis handle createdAt & updatedAt
 });
 
-// Indexing agar pencarian notifikasi per user lebih cepat
+// INDEXING PERFORMANCE
+// 1. Agar load notifikasi user cepat
 NotificationSchema.index({ userId: 1, createdAt: -1 });
+
+// 2. TTL INDEX: Otomatis hapus dokumen jika expiresAt sudah lewat (Housekeeping)
+NotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);

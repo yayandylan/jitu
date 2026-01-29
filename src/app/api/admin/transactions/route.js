@@ -13,8 +13,11 @@ async function isAdminAuthorized() {
   if (!token) return false;
   try {
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    
+    // Cek role di token
     if (decoded.role === 'admin') return true;
     
+    // Double check ke database (lebih aman)
     await connectDB();
     const user = await User.findById(decoded.userId);
     return user && user.role === 'admin';
@@ -24,12 +27,13 @@ async function isAdminAuthorized() {
 }
 
 /**
- * GET: Mengambil data transaksi dengan filter tanggal
+ * GET: Mengambil SEMUA data transaksi (untuk Admin Dashboard)
  */
 export async function GET(req) {
   // 1. Cek Admin Dulu
-  if (!(await isAdminAuthorized())) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
+  const isAdmin = await isAdminAuthorized();
+  if (!isAdmin) {
+    return NextResponse.json({ message: 'Unauthorized: Admin Access Only' }, { status: 403 });
   }
 
   try {
@@ -42,13 +46,13 @@ export async function GET(req) {
 
     let query = {};
 
-    // 3. Logika Filter Tanggal
+    // 3. Logika Filter Tanggal (Opsional)
     if (startDate && endDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0); // Awal hari
+      start.setHours(0, 0, 0, 0); // Awal hari (00:00)
       
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Akhir hari
+      end.setHours(23, 59, 59, 999); // Akhir hari (23:59)
 
       query.createdAt = {
         $gte: start,
@@ -57,12 +61,11 @@ export async function GET(req) {
     }
 
     // 4. Tarik data dan hubungkan ke model User
-    // FIX: Gunakan variabel 'Transaction' dan 'User' yang sudah di-import di atas
     const transactions = await Transaction.find(query)
       .populate({
         path: 'userId',
-        model: User, // FIX: Pakai 'User', bukan 'userModel'
-        select: 'name email' // Ambil nama & email saja
+        model: User, // Pastikan Model User (Huruf Besar)
+        select: 'name email' // Ambil nama & email saja untuk efisiensi
       })
       .sort({ createdAt: -1 }) // Urutkan dari yang terbaru
       .lean(); // Optimasi performa (return plain JSON object)
@@ -70,7 +73,8 @@ export async function GET(req) {
     return NextResponse.json(transactions);
 
   } catch (error) {
-    console.error("TRANSACTIONS_GET_ERROR:", error.message);
+    console.error("ADMIN TRANSACTIONS ERROR:", error);
+    // Return array kosong agar Frontend tidak crash (map error)
     return NextResponse.json([], { status: 500 });
   }
 }
