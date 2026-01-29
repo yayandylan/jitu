@@ -2,8 +2,9 @@ import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// 1. Validasi URI yang lebih detail
 if (!MONGODB_URI) {
-  throw new Error('⚠️ ERROR: MONGODB_URI belum diisi di file .env.local');
+  throw new Error('⚠️ ERROR: MONGODB_URI tidak ditemukan di Environment Variables Vercel!');
 }
 
 let cached = global.mongoose;
@@ -20,10 +21,16 @@ async function connectDB() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      // Tambahkan timeout agar tidak menggantung lama jika koneksi gagal
+      connectTimeoutMS: 10000, 
     };
 
+    console.log("⏳ Mencoba menyambungkan ke MongoDB...");
+    
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log("✅ Berhasil Konek ke MongoDB Jitu Digital");
+      // Cek apakah kita terkoneksi ke database yang benar
+      const dbName = mongoose.connection.name;
+      console.log(`✅ Terkoneksi ke Database: ${dbName}`);
       return mongoose;
     });
   }
@@ -32,6 +39,7 @@ async function connectDB() {
     cached.conn = await cached.promise;
   } catch (e) {
     cached.promise = null;
+    console.error("❌ Gagal menyambung ke MongoDB:", e.message);
     throw e;
   }
 
