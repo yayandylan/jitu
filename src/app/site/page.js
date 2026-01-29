@@ -1,222 +1,232 @@
 "use client";
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+// FIX: Ganti MessageSquareText ke MessageSquare (Lebih aman/kompatibel)
 import { 
-  Search, Target, Clapperboard, ScanEye, 
-  Image as ImageIcon, BarChart2, Calculator, 
-  ArrowRight, Sparkles, Lock, Loader2,
-  LayoutTemplate, Flame, Crown
+  Save, Power, Wallet, Loader2, Search, Check, 
+  ChevronDown, Calculator, Database, Trash2, 
+  Zap, X, Cpu, Eye, Image as ImageIcon, MessageSquare, ShieldAlert 
 } from 'lucide-react';
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Helper Aman
+const getModelCapability = (modelId) => {
+  if(!modelId) return { label: 'TEXT', icon: <MessageSquare size={10} />, style: 'bg-slate-100' };
+  
+  const id = modelId.toLowerCase();
+  if (id.includes('dall-e') || id.includes('flux') || id.includes('stable')) {
+    return { label: 'IMG GEN', icon: <ImageIcon size={10} />, style: 'bg-purple-50 text-purple-600 border-purple-200' };
+  }
+  if (id.includes('gpt-4o') || id.includes('claude-3-5') || id.includes('gemini') || id.includes('vision')) {
+    return { label: 'VISION', icon: <Eye size={10} />, style: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
+  }
+  return { label: 'TEXT', icon: <MessageSquare size={10} />, style: 'bg-slate-100 text-slate-500 border-slate-200' };
+};
 
-  // 1. AMBIL DATA USER
+// Komponen Select yang Aman
+function AIModelSelect({ options = [], value, onChange, loading }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef(null);
+  
+  // SAFEGUARD: Pastikan options adalah Array
+  const safeOptions = Array.isArray(options) ? options : [];
+  const selectedModel = safeOptions.find(o => o.id === value);
+  
+  const filteredOptions = safeOptions.filter(option => 
+    (option.name || "").toLowerCase().includes(search.toLowerCase()) || 
+    (option.id || "").toLowerCase().includes(search.toLowerCase())
+  );
+
   useEffect(() => {
-    fetch('/api/user/me')
-      .then(res => res.json())
-      .then(data => {
-        if(data.user) setUser(data.user);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Gagal load user:", err);
-        setLoading(false);
-      });
+    function handleClickOutside(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false); }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 2. DAFTAR TOOLS (SINKRON DENGAN SIDEBAR)
-  const tools = [
-    {
-      title: "Riset Produk Winning",
-      desc: "Cari ide produk laris manis (Blue Ocean Strategy).",
-      icon: <Search className="w-8 h-8 text-blue-600" />,
-      href: "/site/tools/riset-produk", 
-      color: "bg-blue-50 border-blue-100 hover:border-blue-300",
-      status: "Ready",
-      isFree: true 
-    },
-    {
-      title: "Landing Page Builder",
-      desc: "Bikin sales page HTML siap iklan dalam 10 detik.",
-      icon: <LayoutTemplate className="w-8 h-8 text-orange-600" />,
-      href: "/site/tools/landing-page", 
-      color: "bg-orange-50 border-orange-100 hover:border-orange-300",
-      status: "Hot", // New Feature
-      isFree: false 
-    },
-    {
-      title: "Validasi Market",
-      desc: "Blueprint targeting FB Ads & copywriting WA.",
-      icon: <Target className="w-8 h-8 text-indigo-600" />,
-      href: "/site/tools/validasi-market",
-      color: "bg-indigo-50 border-indigo-100 hover:border-indigo-300",
-      status: "Ready",
-      isFree: false 
-    },
-    {
-      title: "Magic Ad Script",
-      desc: "Generate caption iklan & naskah video TikTok.",
-      icon: <Clapperboard className="w-8 h-8 text-pink-600" />,
-      href: "/site/tools/magic-ad-script",
-      color: "bg-pink-50 border-pink-100 hover:border-pink-300",
-      status: "New",
-      isFree: false 
-    },
-    {
-      title: "Audit Funnel & LP",
-      desc: "Cek 'message match' iklan vs landing page.",
-      icon: <ScanEye className="w-8 h-8 text-teal-600" />,
-      href: "/site/tools/ad-review",
-      color: "bg-teal-50 border-teal-100 hover:border-teal-300",
-      status: "New",
-      isFree: false 
-    },
-    {
-      title: "Analisis Iklan Dashboard",
-      desc: "Upload screenshot ads, AI diagnosa performanya.",
-      icon: <BarChart2 className="w-8 h-8 text-violet-600" />,
-      href: "/site/tools/analisis-iklan", // Sudah Aktif
-      color: "bg-violet-50 border-violet-100 hover:border-violet-300",
-      status: "Ready",
-      isFree: false
-    },
-    {
-      title: "Kalkulator Profit Ads",
-      desc: "Hitung ROAS, BEP, dan estimasi profit harian.",
-      icon: <Calculator className="w-8 h-8 text-emerald-600" />,
-      href: "/site/tools/kalkulator-ads", // Sudah Aktif
-      color: "bg-emerald-50 border-emerald-100 hover:border-emerald-300",
-      status: "Ready",
-      isFree: false
-    },
-    {
-      title: "Generate Gambar Iklan",
-      desc: "Buat visual mockup 3D produk digital.",
-      icon: <ImageIcon className="w-8 h-8 text-purple-600" />,
-      href: "#", 
-      color: "bg-purple-50 border-purple-100 hover:border-purple-300",
-      status: "Coming Soon", // Belum dibuat codingannya di frontend (opsional)
-      isFree: false
-    },
-  ];
+  return (
+    <div className="relative w-full font-poppins" ref={dropdownRef}>
+      <button onClick={() => !loading && setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 border transition-all ${isOpen ? 'border-blue-500 bg-white ring-2 ring-blue-500/10' : 'border-slate-200 hover:border-slate-300'}`}>
+        <div className="flex flex-col text-left overflow-hidden w-full mr-2">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Model AI Engine</span>
+          <div className="flex items-center gap-2 overflow-hidden">
+            {selectedModel ? (
+               <>
+                 <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase tracking-wider shrink-0 ${getModelCapability(selectedModel.id).style}`}>
+                    {getModelCapability(selectedModel.id).icon}
+                    {getModelCapability(selectedModel.id).label}
+                 </div>
+                 <span className="text-[11px] font-bold text-slate-700 truncate">{selectedModel.name}</span>
+               </>
+            ) : (<span className="text-[11px] font-bold text-slate-400">{loading ? "Menghubungkan..." : "Pilih Model"}</span>)}
+          </div>
+        </div>
+        <ChevronDown size={16} className={`text-slate-400 shrink-0 ${isOpen ? 'rotate-180' : ''} transition-transform duration-300`} />
+      </button>
+      {isOpen && (
+        <div className="absolute z-[100] left-0 right-0 bottom-full mb-2 bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="p-2 border-b border-slate-100 bg-slate-50">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" /><input autoFocus type="text" placeholder="Cari engine..." className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none focus:border-blue-500 uppercase text-slate-600 placeholder:normal-case" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
+            {filteredOptions.map((option) => (
+                <div key={option.id} onClick={() => { onChange(option.id); setIsOpen(false); setSearch(""); }} className={`p-2.5 rounded-xl cursor-pointer flex justify-between items-center transition-all ${option.id === value ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}>
+                    <div className="flex flex-col gap-1 min-w-0"><div className="flex items-center gap-2"><span className={`text-[10px] font-bold truncate ${option.id === value ? 'text-blue-700' : 'text-slate-700'}`}>{option.name}</span></div><span className="text-[9px] font-medium text-slate-400 pl-1">{option.priceLabel}</span></div>
+                    {option.id === value && <Check size={14} className="text-blue-600" />}
+                </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-  // 3. LOGIKA PROTEKSI (REDIRECT KE TOPUP)
-  const handleToolClick = (e, tool) => {
-    // Jika Coming Soon -> Do nothing
-    if (tool.status === "Coming Soon") {
-      e.preventDefault();
-      return;
-    }
+export default function ToolConfigPage() {
+  const router = useRouter();
+  const [tools, setTools] = useState([]);
+  const [models, setModels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
+  
+  const [packagePrice, setPackagePrice] = useState(100000); 
+  const [packagePoints, setPackagePoints] = useState(10000); 
+  const pricePerPoint = packagePoints > 0 ? packagePrice / packagePoints : 0;
 
-    // Jika Berbayar & User Belum Premium -> Redirect Topup
-    if (!tool.isFree && !user?.isPremium) {
-      e.preventDefault(); 
-      router.push('/site/topup');
+  useEffect(() => {
+    const checkAdmin = async () => {
+        try {
+            const res = await fetch('/api/user/me');
+            const data = await res.json();
+            if (data.user && data.user.role === 'admin') {
+                setAuthChecking(false);
+                fetchData();
+            } else {
+                router.push('/site/dashboard');
+            }
+        } catch (e) { router.push('/login'); }
+    };
+    checkAdmin();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [tRes, mRes] = await Promise.all([
+          fetch('/api/admin/tools').then(r => r.ok ? r.json() : []), 
+          fetch('/api/admin/models').then(r => r.ok ? r.json() : [])
+      ]);
+      
+      // SAFEGUARD: Pastikan data selalu array
+      setTools(Array.isArray(tRes) ? tRes : []);
+      setModels(Array.isArray(mRes) ? mRes : []);
+    } catch (err) { 
+        console.error("Gagal load data:", err);
+    } finally { 
+        setLoading(false); 
     }
   };
 
-  if (loading) return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center">
-      <Loader2 className="animate-spin text-blue-600 w-10 h-10 mb-4"/> 
-      <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Memuat Markas...</p>
+  const handleChange = (index, field, value) => {
+    const newTools = [...tools];
+    newTools[index][field] = value;
+    setTools(newTools);
+  };
+
+  const handleSave = async (tool, currentHpp) => {
+    try {
+      const res = await fetch('/api/admin/tools', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            id: tool._id, 
+            creditCost: parseInt(tool.creditCost), 
+            aiModel: tool.aiModel, 
+            isActive: tool.isActive, 
+            costPerToken: currentHpp 
+        }),
+      });
+      if (res.ok) alert(`✅ Konfigurasi berhasil disimpan!`);
+    } catch (err) { alert("Gagal Simpan"); }
+  };
+
+  const calculateMargin = (tool) => {
+    const revenue = (parseInt(tool.creditCost) || 0) * pricePerPoint;
+    const modelData = models.find(m => m.id === tool.aiModel);
+    const KURS = 16200; 
+    let hpp = 0;
+    
+    if (modelData) {
+        const promptCost = modelData.perTokenPrompt || 0;
+        const compCost = modelData.perTokenCompletion || 0;
+        hpp = ((1000 * promptCost) + (1000 * compCost)) * KURS;
+    }
+
+    const profit = revenue - hpp;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { hpp, profit, margin };
+  };
+
+  if (authChecking || loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center font-poppins bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{authChecking ? 'Memeriksa Akses...' : 'Sinkronisasi Data...'}</p>
     </div>
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20">
-      
-      {/* HEADER & STATUS CARD */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-100 pb-6">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20 px-4 mt-8 font-poppins text-slate-900">
+      <div className="flex justify-between items-center border-b border-slate-200 pb-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">
-            Dashboard <span className="text-blue-600">Advertiser</span>
-          </h1>
-          <p className="text-slate-500 font-medium mt-1">Pilih amunisi perang Anda hari ini.</p>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Control <span className="text-blue-600">Tools</span></h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Admin Dashboard</p>
         </div>
-        
-        {user?.isPremium ? (
-          <div className="bg-[#0F172A] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-xl border border-slate-800">
-            <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse" />
-            <span>Member Premium</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-             <div className="bg-white text-slate-500 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-2">
-                <div className="w-2 h-2 bg-slate-300 rounded-full" />
-                <span>FREE MEMBER</span>
-             </div>
-             <Link href="/site/topup" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95">
-                <Crown size={14} className="fill-white"/> Upgrade
-             </Link>
-          </div>
-        )}
+        <button onClick={fetchData} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 transition-all shadow-sm"><Database size={20} /></button>
       </div>
 
-      {/* GRID MENU TOOLS */}
+      {/* PROFIT SIMULATOR */}
+      <div className="bg-slate-900 p-8 rounded-[2rem] text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="flex items-center gap-4">
+            <div className="bg-blue-600 p-3 rounded-xl"><Calculator size={24} /></div>
+            <div>
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block">Profit Simulator</span>
+                <h3 className="text-xl font-bold">HPP Poin: <span className="text-emerald-400">Rp {pricePerPoint.toFixed(2)}</span></h3>
+            </div>
+        </div>
+        <div className="flex gap-4">
+            <div><span className="text-[9px] block text-slate-400 uppercase mb-1">Paket (Rp)</span><input type="number" value={packagePrice} onChange={(e)=>setPackagePrice(Number(e.target.value))} className="bg-white/10 p-2 rounded-lg w-32 font-bold text-white outline-none"/></div>
+            <div><span className="text-[9px] block text-slate-400 uppercase mb-1">Poin</span><input type="number" value={packagePoints} onChange={(e)=>setPackagePoints(Number(e.target.value))} className="bg-white/10 p-2 rounded-lg w-24 font-bold text-white outline-none text-right"/></div>
+        </div>
+      </div>
+
+      {/* TOOLS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tools.map((tool, index) => {
-            const isLocked = !tool.isFree && !user?.isPremium && tool.status !== "Coming Soon";
-            const isComingSoon = tool.status === "Coming Soon";
-
-            return (
-              <Link 
-                key={index} 
-                href={isComingSoon ? "#" : tool.href}
-                onClick={(e) => handleToolClick(e, tool)}
-                className={`
-                    relative group block p-7 rounded-[2rem] border transition-all duration-300 h-full flex flex-col justify-between
-                    ${isLocked 
-                        ? "bg-slate-50/50 border-slate-200 cursor-pointer" 
-                        : `${tool.color} bg-white shadow-sm hover:shadow-xl hover:-translate-y-1` 
-                    }
-                    ${isComingSoon ? "opacity-60 cursor-not-allowed grayscale" : ""}
-                `}
-              >
-                {/* ICON & BADGE */}
-                <div>
-                    <div className="flex justify-between items-start mb-6">
-                    <div className={`p-3.5 rounded-2xl shadow-sm transition-transform ${isLocked ? 'bg-slate-100 grayscale opacity-50' : 'bg-white group-hover:scale-110 shadow-md'}`}>
-                        {tool.icon}
-                    </div>
-                    
-                    {/* Status Badges */}
-                    {!isLocked && tool.status === "Hot" && (
-                        <div className="bg-orange-50 text-orange-600 border border-orange-100 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider flex items-center gap-1">
-                        <Flame size={10} className="fill-orange-500 animate-pulse"/> HOT
-                        </div>
-                    )}
-                    {!isLocked && tool.status === "New" && (
-                        <div className="bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider">
-                        NEW
-                        </div>
-                    )}
-                    {isLocked && (
-                        <div className="bg-slate-200 text-slate-500 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider flex items-center gap-1">
-                            <Lock size={10} /> LOCKED
-                        </div>
-                    )}
-                    </div>
-                    
-                    <h3 className={`text-lg font-black mb-2 uppercase tracking-tight transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-700'}`}>
-                    {tool.title}
-                    </h3>
-                    <p className={`text-xs font-medium leading-relaxed mb-6 ${isLocked ? 'text-slate-400' : 'text-slate-500'}`}>
-                    {tool.desc}
-                    </p>
+          const { hpp, profit, margin } = calculateMargin(tool);
+          return (
+            <div key={tool._id || index} className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-6 flex flex-col gap-6">
+                <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tool.isActive ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-400'}`}><Zap size={18}/></div>
+                    <div><h3 className="font-bold text-sm uppercase">{tool.name}</h3><span className="text-[10px] text-slate-400 font-bold uppercase">{tool.slug}</span></div>
                 </div>
                 
-                {/* FOOTER LINK */}
-                <div className={`flex items-center text-[10px] font-black uppercase tracking-widest mt-auto pt-4 border-t ${isLocked ? 'border-slate-200 text-slate-400' : 'border-black/5 text-blue-600 group-hover:gap-2 transition-all'}`}>
-                  {isComingSoon ? "Segera Hadir" : isLocked ? "Perlu Akses Premium" : "Buka Tool"} 
-                  {!isComingSoon && !isLocked && <ArrowRight className="w-3.5 h-3.5 ml-1" />}
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div><span className="text-[9px] font-bold text-slate-400 uppercase block">Est. Cost</span><span className="font-mono text-xs font-bold">Rp {hpp.toFixed(0)}</span></div>
+                    <div><span className={`text-[9px] font-bold uppercase block ${profit > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>Margin {Math.round(margin)}%</span><span className={`font-mono text-xs font-bold ${profit > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>Rp {Math.round(profit)}</span></div>
                 </div>
-              </Link>
-            );
+
+                <div className="space-y-3">
+                    <div><label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Harga (Poin)</label><input type="number" value={tool.creditCost} onChange={(e)=>handleChange(index, 'creditCost', e.target.value)} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500"/></div>
+                    <AIModelSelect options={models} value={tool.aiModel} onChange={(val)=>handleChange(index, 'aiModel', val)} />
+                </div>
+
+                <div className="flex gap-2 pt-2 mt-auto">
+                    <button onClick={()=>handleChange(index, 'isActive', !tool.isActive)} className={`p-3 rounded-xl border-2 transition-all ${tool.isActive ? 'border-slate-200 text-slate-400' : 'bg-slate-800 border-slate-800 text-white'}`}><Power size={18}/></button>
+                    <button onClick={()=>handleSave(tool, hpp)} className="flex-1 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 flex items-center justify-center gap-2"><Save size={14}/> SIMPAN</button>
+                </div>
+            </div>
+          );
         })}
       </div>
     </div>
