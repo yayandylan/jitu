@@ -23,13 +23,13 @@ export default async function AdminLayout({ children }) {
 
     const adminMenus = [
       { name: 'Overview', href: '/admin', icon: <LayoutDashboard size={18} /> },
-      { name: 'Kelola Transaksi', href: '/admin/transactions', icon: <Receipt size={18} /> },
-      { name: 'Voucher Promo', href: '/admin/vouchers', icon: <Ticket size={18} /> },
-      { name: 'Kelola Paket', href: '/admin/packages', icon: <Gift size={18} /> }, // MENU BARU
-      { name: 'Global Setting', href: '/admin/settings', icon: <Settings size={18} /> },
-      { name: 'Manage User', href: '/admin/users', icon: <Users size={18} /> },
-      { name: 'Config Tools', href: '/admin/tools', icon: <Wrench size={18} /> },
-      { name: 'Broadcast', href: '/admin/broadcast', icon: <Megaphone size={18} /> },
+      { name: 'Kelola Transaksi', href: '/site/admin/transactions', icon: <Receipt size={18} /> },
+      { name: 'Voucher Promo', href: '/site/admin/vouchers', icon: <Ticket size={18} /> },
+      { name: 'Kelola Paket', href: '/site/admin/packages', icon: <Gift size={18} /> }, // MENU BARU
+      { name: 'Global Setting', href: '/site/admin/settings', icon: <Settings size={18} /> },
+      { name: 'Manage User', href: '/site/admin/users', icon: <Users size={18} /> },
+      { name: 'Config Tools', href: '/site/admin/tools', icon: <Wrench size={18} /> },
+      { name: 'Broadcast', href: '/site/admin/broadcast', icon: <Megaphone size={18} /> },
     ];
 
     return (
