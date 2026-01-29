@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { deleteCookie } from 'cookies-next'; 
 import { Poppins } from 'next/font/google';
-import NotificationBell from '../../components/NotificationBell'; 
+import NotificationBell from '@/components/NotificationBell'; 
 import { 
   LayoutDashboard, User, Search, Target, Clapperboard, 
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
@@ -223,10 +223,10 @@ export default function DashboardLayout({ children }) {
 
         {/* FOOTER */}
         <div className="p-4 border-t border-slate-100 shrink-0 space-y-1 bg-white">
-           <Link href="/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
+           <Link href="/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
               <Settings size={20} className="text-slate-400" /> Profil & Setting
            </Link>
-           <button onClick={() => { deleteCookie('token'); window.location.href = "/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+           <button onClick={() => { deleteCookie('token'); window.location.href = "/site/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
               <LogOut size={20} /> Keluar Aplikasi
            </button>
         </div>
