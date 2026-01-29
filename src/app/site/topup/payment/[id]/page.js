@@ -3,9 +3,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { 
   Copy, CheckCircle, MessageCircle, Loader2, 
-  ArrowLeft, RefreshCw, AlertTriangle, 
-  Sparkles, ShieldCheck, Banknote, Info, Hash,
-  ChevronDown, ChevronUp, BookOpen, Smartphone, Landmark
+  ArrowLeft, RefreshCw, Banknote, Info, Hash, 
+  Sparkles, BookOpen, Smartphone, Landmark, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 export default function PaymentPage() {
@@ -16,19 +15,23 @@ export default function PaymentPage() {
   const [copied, setCopied] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // --- KONFIGURASI BANK & ADMIN ---
   const BANK_INFO = { 
     bank: "BCA", 
     code: "014", // Kode bank BCA
     number: "0561361061", 
     name: "Ahmad Sofyan" 
   };
-  const WA_ADMIN = "6281234567890"; // Ganti dengan nomor WA Admin
+  
+  // Nomor WA Admin (Tanpa tanda + atau spasi)
+  const WA_ADMIN = "628175760760"; 
 
   const fetchTransaction = useCallback(async () => {
     if (!params.id) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/transaction/${params.id}`);
+      // FIX: Menggunakan 'transactions' (jamak) sesuai nama folder API backend
+      const res = await fetch(`/api/transactions/${params.id}`);
       const data = await res.json();
       if(data.transaction) setTrx(data.transaction);
     } catch (err) { 
@@ -40,7 +43,7 @@ export default function PaymentPage() {
 
   useEffect(() => { fetchTransaction(); }, [fetchTransaction]);
 
-  // LOGIC FORMAT HARGA (Safe Mode)
+  // LOGIC FORMAT HARGA (Memisahkan 3 digit kode unik)
   const formatPriceParts = (price) => {
     if (!price) return { main: "0", unique: "000" };
     const str = price.toString();
@@ -63,7 +66,8 @@ export default function PaymentPage() {
 
   return (
     <div className="max-w-xl mx-auto py-10 px-4 md:px-0 text-slate-900 font-poppins antialiased">
-      {/* TOMBOL KEMBALI (Ke Dashboard Site) */}
+      
+      {/* TOMBOL KEMBALI */}
       <button onClick={() => router.push('/site/dashboard')} className="group flex items-center text-slate-400 mb-8 hover:text-slate-900 transition-all text-[10px] font-black uppercase tracking-widest">
         <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Kembali ke Dashboard
       </button>

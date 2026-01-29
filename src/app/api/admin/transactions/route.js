@@ -1,32 +1,54 @@
+import { NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
+import connectDB from '@/lib/db'; 
+import Transaction from '@/models/Transaction'; 
+import User from '@/models/User'; 
+
 export const dynamic = 'force-dynamic'; // Supaya data selalu update
 
-import { NextResponse } from 'next/server';
-import connectDB from '@/lib/db'; 
-import Transaction from '@/models/Transaction'; // Arahkan ke file Transaction.js (Huruf Besar)
-import User from '@/models/User'; 
+// --- MIDDLEWARE INTERNAL: CEK ADMIN ---
+async function isAdminAuthorized() {
+  const token = cookies().get('token')?.value;
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    if (decoded.role === 'admin') return true;
+    
+    await connectDB();
+    const user = await User.findById(decoded.userId);
+    return user && user.role === 'admin';
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * GET: Mengambil data transaksi dengan filter tanggal
  */
 export async function GET(req) {
+  // 1. Cek Admin Dulu
+  if (!(await isAdminAuthorized())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
+  }
+
   try {
     await connectDB();
 
-    // 1. Ambil parameter filter dari URL
+    // 2. Ambil parameter filter dari URL
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     let query = {};
 
-    // 2. Logika Filter Tanggal (Jika admin memilih tanggal)
+    // 3. Logika Filter Tanggal
     if (startDate && endDate) {
-      // Set jam ke 00:00:00 untuk awal hari dan 23:59:59 untuk akhir hari
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
+      start.setHours(0, 0, 0, 0); // Awal hari
       
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      end.setHours(23, 59, 59, 999); // Akhir hari
 
       query.createdAt = {
         $gte: start,
@@ -34,24 +56,21 @@ export async function GET(req) {
       };
     }
 
-    // 3. Tarik data dan hubungkan ke model User
-    const transactions = await transactionModel.find(query)
+    // 4. Tarik data dan hubungkan ke model User
+    // FIX: Gunakan variabel 'Transaction' dan 'User' yang sudah di-import di atas
+    const transactions = await Transaction.find(query)
       .populate({
         path: 'userId',
-        model: userModel, // Pastikan menggunakan model userModel (huruf kecil)
-        select: 'name email'
+        model: User, // FIX: Pakai 'User', bukan 'userModel'
+        select: 'name email' // Ambil nama & email saja
       })
       .sort({ createdAt: -1 }) // Urutkan dari yang terbaru
-      .lean();
-
-    // Log untuk pantau di terminal VS Code Bapak
-    console.log(`[TRANSAKSI API] Mengirim ${transactions.length} data ke tabel.`);
+      .lean(); // Optimasi performa (return plain JSON object)
 
     return NextResponse.json(transactions);
 
   } catch (error) {
     console.error("TRANSACTIONS_GET_ERROR:", error.message);
-    // Kembalikan array kosong agar tabel di frontend tidak crash
     return NextResponse.json([], { status: 500 });
   }
 }
