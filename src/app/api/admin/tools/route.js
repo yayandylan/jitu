@@ -3,8 +3,9 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import connectDB from '@/lib/db';
 import ToolConfig from '@/models/ToolConfig';
+import User from '@/models/User'; // Tambahan: Untuk validasi role realtime
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // Mencegah caching data admin
 
 // --- MIDDLEWARE INTERNAL: CEK ADMIN ---
 async function isAdminAuthorized() {
@@ -12,7 +13,15 @@ async function isAdminAuthorized() {
   if (!token) return false;
   try {
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    return decoded.role === 'admin';
+    
+    // 1. Cek dari Token (Cepat)
+    if (decoded.role === 'admin') return true;
+
+    // 2. Cek ke Database (Aman - jika baru diupdate via Compass)
+    await connectDB();
+    const user = await User.findById(decoded.userId);
+    return user && user.role === 'admin';
+
   } catch (error) {
     return false;
   }
@@ -26,7 +35,7 @@ export async function GET() {
 
   try {
     await connectDB();
-    // Sort berdasarkan category dulu, baru nama (Biar rapi di UI)
+    // Sort berdasarkan category dulu (jika ada), baru nama
     const tools = await ToolConfig.find({}).sort({ category: 1, name: 1 });
     return NextResponse.json(tools);
   } catch (error) {
