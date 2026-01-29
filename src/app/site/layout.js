@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     fetchUserData();
-    setSidebarOpen(false);
+    setSidebarOpen(false); // Tutup sidebar setiap kali pindah halaman
   }, [pathname]);
 
   const fetchUserData = async () => {
@@ -44,7 +44,6 @@ export default function DashboardLayout({ children }) {
   };
 
   const menuItems = [
-    // FIX: Tambah /site/ di depan semua link internal dashboard
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     { section: 'TOOLS UTAMA' },
     { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
@@ -65,16 +64,19 @@ export default function DashboardLayout({ children }) {
     );
   }
 
+  // --- LOGIKA UTAMA REDIRECT ---
   const handleMenuClick = (e, item) => {
+    // 1. Jika menu "Coming Soon" (Disabled) -> Jangan lakukan apa-apa
     if (item.disabled) {
       e.preventDefault();
       return;
     }
+
+    // 2. LOGIKA UNLOCK: Jika Tool Berbayar DAN User Belum Premium
     if (!item.isFree && !userData?.isPremium) {
-      e.preventDefault();
-      // FIX: Redirect Topup ke dalam folder site
-      router.push('/site/topup');
-      setSidebarOpen(false);
+      e.preventDefault(); // STOP! Jangan masuk ke halaman tool
+      router.push('/site/topup'); // LEMPAR ke halaman Top Up
+      setSidebarOpen(false); // Tutup sidebar (jika di mobile)
     }
   };
 
@@ -134,7 +136,9 @@ export default function DashboardLayout({ children }) {
         {/* WIDGET SALDO */}
         <div className="px-4 md:px-3 pt-6 md:pt-3 pb-2 shrink-0">
           <div className={`rounded-2xl p-5 md:p-4 relative overflow-hidden group shadow-xl border transition-all duration-500 ${userData?.isPremium ? 'bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-900 border-blue-400/30' : 'bg-[#0F172A] border-slate-800'}`}>
+            {/* Background Decor */}
             <Zap className={`absolute -right-5 -bottom-6 opacity-10 rotate-12 pointer-events-none w-28 h-28 ${userData?.isPremium ? 'text-yellow-400 fill-yellow-400' : 'text-blue-500 fill-blue-500'}`} />
+            
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start mb-1">
                 <p className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">
@@ -151,7 +155,7 @@ export default function DashboardLayout({ children }) {
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">pts</span>
                 </div>
-                {/* FIX: Tombol Topup (Plus) diarahkan ke /site/topup */}
+                {/* Tombol Plus ke Topup */}
                 <Link href="/site/topup" className="bg-blue-600 w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded-xl text-white shadow-lg hover:scale-105 active:scale-95 transition-all">
                   <Plus size={16} strokeWidth={3} />
                 </Link>
@@ -177,19 +181,19 @@ export default function DashboardLayout({ children }) {
             return (
               <Link
                 key={index}
-                href={item.href}
+                href={item.href} // Href tetap ada (penting untuk SEO/Hover), tapi di-intercept onClick
+                onClick={(e) => handleMenuClick(e, item)} // <-- INI KUNCINYA
                 className={`
-                  flex items-center justify-between px-4 py-3 md:px-3 md:py-2.5 rounded-xl text-sm font-semibold transition-all group
+                  flex items-center justify-between px-4 py-3 md:px-3 md:py-2.5 rounded-xl text-sm font-semibold transition-all group select-none
                   ${isActive 
                     ? 'bg-blue-50 text-blue-600' 
                     : item.disabled 
                       ? 'text-slate-400 cursor-not-allowed opacity-60' 
                       : isLocked
-                        ? 'text-slate-500 hover:bg-slate-50 cursor-pointer' 
+                        ? 'text-slate-500 hover:bg-slate-50 cursor-pointer hover:shadow-sm' 
                         : 'text-slate-900 hover:bg-slate-50 hover:text-blue-600'
                   }
                 `}
-                onClick={(e) => handleMenuClick(e, item)}
               >
                 <div className="flex items-center gap-3">
                   <span className={isActive ? 'text-blue-600' : (item.disabled || isLocked ? 'text-slate-400' : 'text-slate-400 group-hover:text-blue-600')}>
@@ -200,7 +204,8 @@ export default function DashboardLayout({ children }) {
 
                 {/* Badge Logic */}
                 {isLocked ? (
-                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-2 py-1 rounded-lg shadow-sm">
+                    // Tampilan Badge UNLOCK
+                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-2 py-1 rounded-lg shadow-sm group-hover:scale-105 transition-transform">
                         <LockKeyhole size={10} className="text-white" strokeWidth={3} />
                         <span className="text-[9px] font-black text-white uppercase tracking-tighter">Unlock</span>
                     </div>
@@ -226,12 +231,10 @@ export default function DashboardLayout({ children }) {
 
         {/* FOOTER SIDEBAR */}
         <div className="p-4 border-t border-slate-100 shrink-0 space-y-1 bg-white">
-           {/* FIX: Link ke Profile jadi /site/profile */}
            <Link href="/site/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
               <Settings size={20} className="text-slate-400" /> Profil & Setting
            </Link>
            
-           {/* LOGOUT: Tetap ke /login (Root) karena folder login ada di src/app/login */}
            <button onClick={() => { deleteCookie('token'); window.location.href = "/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
               <LogOut size={20} /> Keluar Aplikasi
            </button>

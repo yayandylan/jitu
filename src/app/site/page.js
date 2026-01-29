@@ -4,17 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  Search, 
-  Target, 
-  Clapperboard, 
-  ScanEye, 
-  Image as ImageIcon, 
-  BarChart2, 
-  Calculator, 
-  ArrowRight,
-  Sparkles,
-  Lock,      
-  Loader2    
+  Search, Target, Clapperboard, ScanEye, 
+  Image as ImageIcon, BarChart2, Calculator, 
+  ArrowRight, Sparkles, Lock, Loader2,
+  LayoutTemplate, Flame, Crown
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -22,7 +15,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. AMBIL DATA USER & CEK STATUS PREMIUM
+  // 1. AMBIL DATA USER
   useEffect(() => {
     fetch('/api/user/me')
       .then(res => res.json())
@@ -36,23 +29,30 @@ export default function DashboardPage() {
       });
   }, []);
 
-  // KONFIGURASI TOOLS (LINK SUDAH DIPERBAIKI)
+  // 2. DAFTAR TOOLS (SINKRON DENGAN SIDEBAR)
   const tools = [
     {
       title: "Riset Produk Winning",
-      desc: "Analisa potensi ide bisnis & strategi blue ocean.",
+      desc: "Cari ide produk laris manis (Blue Ocean Strategy).",
       icon: <Search className="w-8 h-8 text-blue-600" />,
-      // FIX: Tambahkan /site/ di depan
       href: "/site/tools/riset-produk", 
       color: "bg-blue-50 border-blue-100 hover:border-blue-300",
       status: "Ready",
       isFree: true 
     },
     {
-      title: "Validasi Market & CTWA",
+      title: "Landing Page Builder",
+      desc: "Bikin sales page HTML siap iklan dalam 10 detik.",
+      icon: <LayoutTemplate className="w-8 h-8 text-orange-600" />,
+      href: "/site/tools/landing-page", 
+      color: "bg-orange-50 border-orange-100 hover:border-orange-300",
+      status: "Hot", // New Feature
+      isFree: false 
+    },
+    {
+      title: "Validasi Market",
       desc: "Blueprint targeting FB Ads & copywriting WA.",
       icon: <Target className="w-8 h-8 text-indigo-600" />,
-      // FIX: Tambahkan /site/ di depan
       href: "/site/tools/validasi-market",
       color: "bg-indigo-50 border-indigo-100 hover:border-indigo-300",
       status: "Ready",
@@ -62,101 +62,102 @@ export default function DashboardPage() {
       title: "Magic Ad Script",
       desc: "Generate caption iklan & naskah video TikTok.",
       icon: <Clapperboard className="w-8 h-8 text-pink-600" />,
-      // FIX: Tambahkan /site/ di depan
       href: "/site/tools/magic-ad-script",
       color: "bg-pink-50 border-pink-100 hover:border-pink-300",
       status: "New",
       isFree: false 
     },
     {
-      title: "Audit Iklan & Funnel",
+      title: "Audit Funnel & LP",
       desc: "Cek 'message match' iklan vs landing page.",
       icon: <ScanEye className="w-8 h-8 text-teal-600" />,
-      // FIX: Tambahkan /site/ di depan
       href: "/site/tools/ad-review",
       color: "bg-teal-50 border-teal-100 hover:border-teal-300",
       status: "New",
       isFree: false 
     },
     {
+      title: "Analisis Iklan Dashboard",
+      desc: "Upload screenshot ads, AI diagnosa performanya.",
+      icon: <BarChart2 className="w-8 h-8 text-violet-600" />,
+      href: "/site/tools/analisis-iklan", // Sudah Aktif
+      color: "bg-violet-50 border-violet-100 hover:border-violet-300",
+      status: "Ready",
+      isFree: false
+    },
+    {
+      title: "Kalkulator Profit Ads",
+      desc: "Hitung ROAS, BEP, dan estimasi profit harian.",
+      icon: <Calculator className="w-8 h-8 text-emerald-600" />,
+      href: "/site/tools/kalkulator-ads", // Sudah Aktif
+      color: "bg-emerald-50 border-emerald-100 hover:border-emerald-300",
+      status: "Ready",
+      isFree: false
+    },
+    {
       title: "Generate Gambar Iklan",
-      desc: "Buat visual iklan AI tanpa fotografer.",
+      desc: "Buat visual mockup 3D produk digital.",
       icon: <ImageIcon className="w-8 h-8 text-purple-600" />,
       href: "#", 
       color: "bg-purple-50 border-purple-100 hover:border-purple-300",
-      status: "Coming Soon",
-      isFree: false
-    },
-    {
-      title: "Analisis Performa",
-      desc: "Diagnosa data iklan (CPM, CTR, ROAS).",
-      icon: <BarChart2 className="w-8 h-8 text-orange-600" />,
-      href: "#",
-      color: "bg-orange-50 border-orange-100 hover:border-orange-300",
-      status: "Coming Soon",
-      isFree: false
-    },
-    {
-      title: "Kalkulator Budget",
-      desc: "Hitung estimasi profit & budget harian.",
-      icon: <Calculator className="w-8 h-8 text-green-600" />,
-      href: "#",
-      color: "bg-green-50 border-green-100 hover:border-green-300",
-      status: "Coming Soon",
+      status: "Coming Soon", // Belum dibuat codingannya di frontend (opsional)
       isFree: false
     },
   ];
 
-  // 2. PROTEKSI KLIK UNTUK USER FREE
+  // 3. LOGIKA PROTEKSI (REDIRECT KE TOPUP)
   const handleToolClick = (e, tool) => {
+    // Jika Coming Soon -> Do nothing
     if (tool.status === "Coming Soon") {
       e.preventDefault();
       return;
     }
 
+    // Jika Berbayar & User Belum Premium -> Redirect Topup
     if (!tool.isFree && !user?.isPremium) {
       e.preventDefault(); 
-      const confirmTopup = confirm("🔒 Fitur Terkunci!\n\nFitur ini khusus Member Premium. Top Up saldo minimal sekali untuk membuka semua akses.\n\nMau Top Up sekarang?");
-      if(confirmTopup) {
-        // FIX: Redirect ke halaman Topup yang benar
-        router.push('/site/topup');
-      }
+      router.push('/site/topup');
     }
   };
 
   if (loading) return (
-    <div className="p-20 text-center flex flex-col items-center">
-      <Loader2 className="animate-spin text-blue-600 mb-2"/> 
-      <p className="text-sm text-gray-500 font-medium">Menyiapkan Dashboard...</p>
+    <div className="min-h-[60vh] flex flex-col items-center justify-center">
+      <Loader2 className="animate-spin text-blue-600 w-10 h-10 mb-4"/> 
+      <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Memuat Markas...</p>
     </div>
   );
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-20">
       
-      {/* Header & Status Card */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      {/* HEADER & STATUS CARD */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-100 pb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Advertiser</h1>
-          <p className="text-gray-500 mt-1">Pilih senjata AI Anda hari ini.</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">
+            Dashboard <span className="text-blue-600">Advertiser</span>
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">Pilih amunisi perang Anda hari ini.</p>
         </div>
         
         {user?.isPremium ? (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-500/30 border border-blue-400/20">
-            <Sparkles className="w-4 h-4 text-yellow-300" />
-            <span>MEMBER PREMIUM</span>
+          <div className="bg-[#0F172A] text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-xl border border-slate-800">
+            <Sparkles className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-pulse" />
+            <span>Member Premium</span>
           </div>
         ) : (
-          <div className="bg-white text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border border-slate-200 shadow-sm">
-            <div className="w-2 h-2 bg-slate-300 rounded-full" />
-            <span>FREE MEMBER</span>
-            {/* FIX: Link ke Topup */}
-            <Link href="/site/topup" className="text-blue-600 hover:text-blue-700 text-xs font-extrabold ml-1 underline decoration-2 underline-offset-4">UPGRADE ↗</Link>
+          <div className="flex items-center gap-3">
+             <div className="bg-white text-slate-500 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 flex items-center gap-2">
+                <div className="w-2 h-2 bg-slate-300 rounded-full" />
+                <span>FREE MEMBER</span>
+             </div>
+             <Link href="/site/topup" className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all flex items-center gap-2 active:scale-95">
+                <Crown size={14} className="fill-white"/> Upgrade
+             </Link>
           </div>
         )}
       </div>
 
-      {/* Grid Menu Tools */}
+      {/* GRID MENU TOOLS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tools.map((tool, index) => {
             const isLocked = !tool.isFree && !user?.isPremium && tool.status !== "Coming Soon";
@@ -168,48 +169,51 @@ export default function DashboardPage() {
                 href={isComingSoon ? "#" : tool.href}
                 onClick={(e) => handleToolClick(e, tool)}
                 className={`
-                    relative group block p-6 rounded-2xl border transition-all duration-300 
+                    relative group block p-7 rounded-[2rem] border transition-all duration-300 h-full flex flex-col justify-between
                     ${isLocked 
-                        ? "bg-slate-50 border-slate-200 cursor-not-allowed" 
-                        : `${tool.color} hover:shadow-md hover:-translate-y-1` 
+                        ? "bg-slate-50/50 border-slate-200 cursor-pointer" 
+                        : `${tool.color} bg-white shadow-sm hover:shadow-xl hover:-translate-y-1` 
                     }
-                    ${isComingSoon ? "opacity-75 cursor-not-allowed" : ""}
+                    ${isComingSoon ? "opacity-60 cursor-not-allowed grayscale" : ""}
                 `}
               >
-                {/* Visual Gembok */}
-                {isLocked && (
-                    <div className="absolute top-4 right-4 bg-white/80 p-2 rounded-full z-10 shadow-sm border border-slate-100">
-                        <Lock size={16} className="text-slate-400" />
+                {/* ICON & BADGE */}
+                <div>
+                    <div className="flex justify-between items-start mb-6">
+                    <div className={`p-3.5 rounded-2xl shadow-sm transition-transform ${isLocked ? 'bg-slate-100 grayscale opacity-50' : 'bg-white group-hover:scale-110 shadow-md'}`}>
+                        {tool.icon}
                     </div>
-                )}
-
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`p-3 rounded-xl shadow-sm transition-transform ${isLocked ? 'bg-slate-100 grayscale' : 'bg-white group-hover:scale-110'}`}>
-                    {tool.icon}
-                  </div>
-                  
-                  {!isLocked && tool.status === "New" && (
-                    <span className="bg-red-500 text-white text-[9px] font-black px-2 py-1 rounded-full tracking-tighter shadow-sm animate-pulse">
-                      NEW TOOL
-                    </span>
-                  )}
-                  {isComingSoon && (
-                    <span className="bg-slate-200 text-slate-500 text-[9px] font-black px-2 py-1 rounded-full tracking-tighter">
-                      COMING SOON
-                    </span>
-                  )}
+                    
+                    {/* Status Badges */}
+                    {!isLocked && tool.status === "Hot" && (
+                        <div className="bg-orange-50 text-orange-600 border border-orange-100 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider flex items-center gap-1">
+                        <Flame size={10} className="fill-orange-500 animate-pulse"/> HOT
+                        </div>
+                    )}
+                    {!isLocked && tool.status === "New" && (
+                        <div className="bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider">
+                        NEW
+                        </div>
+                    )}
+                    {isLocked && (
+                        <div className="bg-slate-200 text-slate-500 text-[9px] font-black px-2.5 py-1 rounded-lg tracking-wider flex items-center gap-1">
+                            <Lock size={10} /> LOCKED
+                        </div>
+                    )}
+                    </div>
+                    
+                    <h3 className={`text-lg font-black mb-2 uppercase tracking-tight transition-colors ${isLocked ? 'text-slate-400' : 'text-slate-900 group-hover:text-blue-700'}`}>
+                    {tool.title}
+                    </h3>
+                    <p className={`text-xs font-medium leading-relaxed mb-6 ${isLocked ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {tool.desc}
+                    </p>
                 </div>
                 
-                <h3 className={`text-xl font-bold mb-2 transition-colors ${isLocked ? 'text-slate-500' : 'text-gray-900 group-hover:text-blue-700'}`}>
-                  {tool.title}
-                </h3>
-                <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                  {tool.desc}
-                </p>
-                
-                <div className={`flex items-center text-sm font-bold ${isComingSoon || isLocked ? "text-gray-400" : "text-blue-600 group-hover:translate-x-2 transition-transform"}`}>
-                  {isComingSoon ? "Dalam Pengembangan" : isLocked ? "Terkunci (Upgrade)" : "Gunakan Sekarang"} 
-                  {!isComingSoon && !isLocked && <ArrowRight className="w-4 h-4 ml-1" />}
+                {/* FOOTER LINK */}
+                <div className={`flex items-center text-[10px] font-black uppercase tracking-widest mt-auto pt-4 border-t ${isLocked ? 'border-slate-200 text-slate-400' : 'border-black/5 text-blue-600 group-hover:gap-2 transition-all'}`}>
+                  {isComingSoon ? "Segera Hadir" : isLocked ? "Perlu Akses Premium" : "Buka Tool"} 
+                  {!isComingSoon && !isLocked && <ArrowRight className="w-3.5 h-3.5 ml-1" />}
                 </div>
               </Link>
             );

@@ -1,266 +1,245 @@
 "use client";
-import ReactMarkdown from 'react-markdown';
 import { useState, useEffect } from 'react';
-import remarkGfm from 'remark-gfm'; 
+import { useRouter } from 'next/navigation';
 import { 
-  GitMerge, Loader2, Upload, Globe, Link as LinkIcon, 
-  CheckCircle2, AlertCircle, Gauge, Sparkles, Image as ImageIcon, X, History 
+  CreditCard, CheckCircle2, ShieldCheck, Zap, 
+  Crown, Gem, Award, ArrowRight, Loader2, Lock, AlertTriangle 
 } from 'lucide-react';
-import ToolHistory from '@/components/ToolHistory'; 
 
-export default function AuditIklanLPPage() {
-  // State
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [lpLink, setLpLink] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState('');
-  const [history, setHistory] = useState([]);
-  
-  // Config Default (Fallback jika DB belum ready)
-  const [config, setConfig] = useState({ creditCost: 80, isActive: true }); 
+export default function TopUpPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false); // Loading saat klik bayar
+  const [dataLoading, setDataLoading] = useState(true); // Loading saat ambil data user
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [user, setUser] = useState(null);
 
-  // 1. FETCH DATA (History & Config)
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch('/api/history?tool=audit-iklan-lp');
-      const data = await res.json();
-      if (data.data) setHistory(data.data);
-    } catch (err) { console.error("Gagal load history"); }
-  };
-
+  // Ambil data user
   useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch('/api/admin/tools');
-        const data = await res.json();
-        // Cari tool dengan slug 'audit-iklan-lp'
-        const myTool = data.find(t => t.slug === 'audit-iklan-lp');
-        if (myTool) setConfig(myTool);
-      } catch (e) { console.log("Gagal load config tool"); }
-    };
-    fetchConfig();
-    fetchHistory();
+    fetch('/api/user/me')
+      .then(res => res.json())
+      .then(data => { 
+        if(data.user) setUser(data.user);
+        setDataLoading(false);
+      })
+      .catch(() => setDataLoading(false));
   }, []);
 
-  // 2. HANDLER UTAMA (Submit Form)
-  const handleAnalyze = async (e) => {
-    e.preventDefault();
-    
-    // Validasi Input
-    if (!file || !lpLink) {
-      alert("Mohon lengkapi data: Upload gambar iklan DAN masukkan link Landing Page.");
-      return;
+  const plans = [
+    {
+      id: 'starter',
+      name: 'Starter Pack',
+      price: 24900,
+      points: 1000,
+      bonus: 100,
+      isPopular: false,
+      color: 'bg-white border-slate-200 text-slate-900',
+      btnColor: 'bg-slate-900 hover:bg-slate-800 text-white',
+      features: ['Akses Semua Tools', 'Masa Aktif Selamanya']
+    },
+    {
+      id: 'pro',
+      name: 'Pro Advertiser',
+      price: 99000,
+      points: 5000,
+      bonus: 1000,
+      isPopular: true, // BEST VALUE
+      color: 'bg-[#0F172A] border-slate-900 text-white shadow-2xl scale-105 z-10',
+      btnColor: 'bg-blue-600 hover:bg-blue-500 text-white',
+      features: ['Prioritas Server', 'Unlock Fitur Premium', 'Masa Aktif Selamanya']
+    },
+    {
+      id: 'agency',
+      name: 'Agency Scale',
+      price: 249000,
+      points: 15000,
+      bonus: 5000,
+      isPopular: false,
+      color: 'bg-gradient-to-b from-amber-50 to-white border-amber-200 text-slate-900',
+      btnColor: 'bg-gradient-to-r from-amber-500 to-amber-600 hover:to-amber-500 text-white shadow-lg shadow-amber-500/20',
+      features: ['Support Prioritas', 'Akses Fitur Beta', 'Limit Request Tinggi']
     }
-    if (!config.isActive) {
-      alert("Maaf, tool ini sedang dalam maintenance.");
-      return;
-    }
+  ];
 
-    setLoading(true); 
-    setResult('');
-
-    // Siapkan FormData (karena ada upload file)
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('lpLink', lpLink);
-    formData.append('type', 'audit-iklan-lp'); // Wajib: untuk backend membedakan jenis request
+  const handleTopUp = async (plan) => {
+    setLoading(true);
+    setSelectedPlan(plan.id);
 
     try {
-      const res = await fetch('/api/ai/vision', { 
+      const res = await fetch('/api/midtrans/token', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: plan.price,
+          packageName: plan.name,
+          points: plan.points + plan.bonus
+        }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
 
-      if (res.status === 402) { 
-        alert("Saldo poin tidak mencukupi untuk analisa Vision AI."); 
-        setLoading(false); 
-        return; 
+      if (window.snap) {
+        window.snap.pay(data.token, {
+          onSuccess: function(result) {
+            alert("Pembayaran Berhasil! Poin telah ditambahkan.");
+            router.push('/site/dashboard');
+          },
+          onPending: function(result) {
+            alert("Menunggu pembayaran...");
+            router.push('/site/history');
+          },
+          onError: function(result) {
+            alert("Pembayaran gagal!");
+            setLoading(false);
+          },
+          onClose: function() {
+            setLoading(false);
+          }
+        });
+      } else {
+        alert("Sistem pembayaran belum siap. Coba refresh halaman.");
+        setLoading(false);
       }
-      
-      if (!res.ok) throw new Error(data.message || "Gagal melakukan analisa.");
-      
-      setResult(data.result);
-      fetchHistory(); // Refresh history setelah sukses
-    } catch (err) { 
-      alert(err.message); 
-    } finally { 
-      setLoading(false); 
+    } catch (error) {
+      alert("Gagal membuat transaksi: " + error.message);
+      setLoading(false);
     }
   };
 
-  // 3. RESTORE FROM HISTORY
-  const handleSelectHistory = (item) => {
-    // Restore Link LP
-    if (item.inputData?.lpLink) setLpLink(item.inputData.lpLink);
+  useEffect(() => {
+    // Load Midtrans Snap JS
+    const snapScript = "https://app.sandbox.midtrans.com/snap/snap.js"; // Ganti ke production URL jika live
+    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "";
     
-    // Restore Gambar (Jika backend menyimpan URL gambar)
-    // Note: Biasanya history tidak menyimpan file blob, jadi preview mungkin kosong
-    // Tapi kita tetap bisa menampilkan hasil analisanya
-    setResult(item.resultData);
-    
-    // Scroll ke hasil
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    const script = document.createElement('script');
+    script.src = snapScript;
+    script.setAttribute('data-client-key', clientKey);
+    script.async = true;
+    document.body.appendChild(script);
 
-  const handleDeleteHistory = async (id) => {
-    if(!confirm("Hapus riwayat ini?")) return;
-    try { 
-        await fetch(`/api/history?id=${id}`, { method: 'DELETE' }); 
-        fetchHistory(); 
-    } catch(e) { alert("Gagal hapus history"); }
-  };
+    return () => {
+      document.body.removeChild(script);
+    }
+  }, []);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 font-poppins antialiased text-slate-900">
+    <div className="max-w-6xl mx-auto pb-20 font-poppins text-slate-900">
       
-      {/* AREA KIRI: FORM & HASIL */}
-      <div className="lg:col-span-2 space-y-8">
+      {/* 1. HEADER & ALERT WAJIB TOPUP */}
+      <div className="text-center mb-16 space-y-6">
         
-        {/* HEADER */}
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3 italic">
-            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
-                <GitMerge className="w-6 h-6 text-white" />
-            </div>
-            Ad & LP <span className="text-indigo-600">Synchronizer</span>
-          </h1>
-          <p className="text-xs font-medium text-slate-400 uppercase tracking-widest leading-relaxed">
-            Analisa apakah "Janji" di iklan Bapak selaras dengan "Realita" di Landing Page.
-          </p>
-        </div>
-
-        {/* FORM CARD */}
-        <div className={`bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all ${!config.isActive ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-          <form onSubmit={handleAnalyze} className="space-y-8">
-            
-            {/* STEP 1: UPLOAD IKLAN (VISION) */}
-            <div className="space-y-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <ImageIcon size={14} className="text-indigo-500" /> 1. Upload Kreatif Iklan (Gambar)
-                </label>
-                
-                {!preview ? (
-                    <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-200 rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-indigo-50/30 hover:border-indigo-300 transition-all group overflow-hidden relative">
-                        <div className="flex flex-col items-center justify-center z-10">
-                            <Upload className="w-10 h-10 text-slate-300 mb-3 group-hover:text-indigo-500 group-hover:scale-110 transition-all" />
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-indigo-600">Klik untuk upload file</p>
-                            <p className="text-[9px] text-slate-400 mt-2">JPG, PNG (Max 5MB)</p>
-                        </div>
-                        <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/png, image/jpeg, image/jpg, image/webp" 
-                            onChange={(e) => {
-                                const f = e.target.files[0];
-                                if(f) { 
-                                    if(f.size > 5 * 1024 * 1024) return alert("Ukuran file maksimal 5MB");
-                                    setFile(f); 
-                                    setPreview(URL.createObjectURL(f)); 
-                                }
-                            }} 
-                        />
-                    </label>
-                ) : (
-                    <div className="relative h-64 rounded-[2rem] overflow-hidden bg-slate-900 group border-2 border-indigo-500 shadow-lg flex items-center justify-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={preview} className="max-w-full max-h-full object-contain" alt="Preview Iklan" />
-                        <button 
-                            type="button"
-                            onClick={() => {setFile(null); setPreview(null);}} 
-                            className="absolute top-4 right-4 p-2 bg-rose-500/80 text-white rounded-full hover:bg-rose-600 transition-all backdrop-blur-sm shadow-lg"
-                        >
-                            <X size={16}/>
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {/* STEP 2: LINK LANDING PAGE */}
-            <div className="space-y-4">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <Globe size={14} className="text-indigo-500" /> 2. Masukkan Link Landing Page
-                </label>
-                <div className="relative group">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-                        <LinkIcon size={18}/>
-                    </div>
-                    <input 
-                        required type="url" 
-                        value={lpLink}
-                        onChange={(e) => setLpLink(e.target.value)}
-                        placeholder="https://website-bapak.com/halaman-promo"
-                        className="w-full pl-12 pr-6 py-5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium outline-none focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm placeholder-slate-300"
-                    />
+        {/* ALERT BOX: Hanya muncul jika Data sudah load DAN User BUKAN Premium */}
+        {!dataLoading && user && !user.isPremium && (
+            <div className="inline-flex items-start md:items-center gap-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl max-w-2xl mx-auto text-left shadow-sm animate-in fade-in zoom-in duration-500">
+                <div className="bg-rose-100 p-2 rounded-xl shrink-0">
+                    <Lock size={20} className="text-rose-600" />
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-medium text-slate-500 bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                    <AlertCircle size={14} className="text-blue-500 shrink-0" /> 
-                    <span>AI akan mengunjungi link ini (scraping) dan membandingkan isinya dengan gambar iklan di atas.</span>
-                </div>
-            </div>
-
-            {/* ACTION BUTTON */}
-            <button
-                type="submit" 
-                disabled={loading || !file || !lpLink}
-                className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 h-16 shadow-xl active:scale-[0.98] ${
-                    loading || !file || !lpLink 
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200' 
-                    : 'bg-indigo-600 text-white hover:bg-slate-900 shadow-indigo-500/20'
-                }`}
-            >
-                {loading ? (
-                    <div className="flex items-center gap-2">
-                        <Loader2 className="animate-spin" /> MENGANALISA VISUAL & KONTEN...
-                    </div>
-                ) : (
-                    <>
-                        <Gauge size={18} /> 
-                        ANALISA KESELARASAN (SYNC CHECK) 
-                        <span className="bg-white/20 px-2 py-1 rounded-lg ml-1 font-mono">-{config.creditCost} pts</span>
-                    </>
-                )}
-            </button>
-          </form>
-        </div>
-
-        {/* HASIL ANALISA */}
-        {result && (
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white border-b border-slate-800">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-indigo-400" /> Laporan Message Match Expert
-                    </h3>
-                    <div className="px-3 py-1 bg-indigo-500/20 rounded-full text-[9px] font-bold tracking-widest uppercase border border-indigo-400/30 text-indigo-200 shadow-[0_0_10px_rgba(99,102,241,0.2)]">Deep Vision Audit</div>
-                </div>
-                
-                <div className="p-8 md:p-12 prose prose-slate prose-sm max-w-none 
-                  prose-headings:text-slate-900 prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight
-                  prose-strong:text-indigo-700 prose-strong:font-bold
-                  prose-p:font-medium prose-p:text-slate-600 prose-p:leading-loose
-                  prose-li:text-slate-600 prose-li:font-medium
-                  prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:bg-indigo-50/30 prose-blockquote:p-4 prose-blockquote:rounded-r-xl prose-blockquote:not-italic
-                ">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
+                <div>
+                    <h3 className="text-sm font-black text-rose-700 uppercase tracking-wide mb-1">Akses Tools Terkunci</h3>
+                    <p className="text-xs text-rose-600/80 font-medium leading-relaxed">
+                        Untuk membuka kunci fitur <b>Validasi Market</b>, <b>Landing Page Builder</b>, & <b>Audit Iklan</b>, silakan Top Up minimal satu kali. 
+                    </p>
                 </div>
             </div>
         )}
-      </div>
 
-      {/* AREA KANAN: HISTORY */}
-      <div className="lg:col-span-1">
-        <div className="sticky top-8">
-            <ToolHistory 
-                title="Riwayat Sinkronisasi" 
-                icon={<History size={16}/>}
-                historyData={history} 
-                onSelect={handleSelectHistory} 
-                onDelete={handleDeleteHistory} 
-            />
+        <div>
+            <h1 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 text-slate-900">
+              Isi Ulang <span className="text-blue-600 not-italic">Amunisi</span>
+            </h1>
+            <p className="text-slate-500 text-sm md:text-base max-w-xl mx-auto font-medium">
+              Investasikan budget iklan Anda pada data yang akurat. <br className="hidden md:block"/>
+              Pilih paket poin di bawah ini untuk mulai mendominasi pasar.
+            </p>
         </div>
       </div>
+
+      {/* 2. PRICING CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-center px-4">
+        {plans.map((plan) => (
+          <div 
+            key={plan.id}
+            className={`
+                relative rounded-[2.5rem] p-8 border transition-all duration-300 flex flex-col h-fit
+                ${plan.color} 
+                ${selectedPlan === plan.id ? 'ring-4 ring-blue-500/20' : ''}
+            `}
+          >
+            {/* Badge Popular */}
+            {plan.isPopular && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-1.5 rounded-b-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-600/40">
+                Paling Laris
+              </div>
+            )}
+
+            {/* Badge Agency */}
+            {plan.id === 'agency' && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-100 border border-amber-200 text-amber-700 px-6 py-1.5 rounded-b-xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Crown size={12} className="fill-amber-700" /> Sultan Mode
+                </div>
+            )}
+
+            <div className="mb-8 mt-4 text-center">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-4">{plan.name}</h3>
+                <div className="flex items-baseline justify-center gap-1 mb-6">
+                    <span className="text-sm font-bold opacity-50">Rp</span>
+                    <span className="text-5xl font-black tracking-tighter italic">{plan.price.toLocaleString('id-ID')}</span>
+                </div>
+                
+                {/* Point Display */}
+                <div className={`py-4 px-6 rounded-2xl border flex items-center justify-between ${plan.id === 'pro' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="text-left">
+                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-50">Total Poin</p>
+                        <p className="text-xl font-black tracking-tight">{(plan.points + plan.bonus).toLocaleString()}</p>
+                    </div>
+                    {plan.bonus > 0 && (
+                        <div className={`px-2 py-1 rounded text-[9px] font-bold uppercase ${plan.id === 'pro' ? 'bg-blue-600 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                            + {plan.bonus} Bonus
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <ul className="space-y-4 mb-8 flex-1">
+                {plan.features.map((feat, i) => (
+                    <li key={i} className="flex items-center gap-3 text-xs font-bold uppercase tracking-wide opacity-80">
+                        <CheckCircle2 size={16} className={plan.id === 'pro' ? "text-blue-400" : "text-blue-600"} /> 
+                        {feat}
+                    </li>
+                ))}
+            </ul>
+
+            <button
+                onClick={() => handleTopUp(plan)}
+                disabled={loading}
+                className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.25em] flex items-center justify-center gap-2 transition-all active:scale-95 ${plan.btnColor} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+                {loading && selectedPlan === plan.id ? (
+                    <Loader2 className="animate-spin" size={16} />
+                ) : (
+                    <>
+                        Beli Sekarang <ArrowRight size={14} />
+                    </>
+                )}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* 3. FOOTER INFO */}
+      <div className="mt-20 border-t border-slate-200 pt-10 text-center max-w-2xl mx-auto space-y-4 px-4">
+        <div className="flex justify-center gap-6 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+            {/* Payment Logos Placeholder */}
+            <span className="text-xs font-black uppercase tracking-widest">BCA</span>
+            <span className="text-xs font-black uppercase tracking-widest">Mandiri</span>
+            <span className="text-xs font-black uppercase tracking-widest">QRIS</span>
+            <span className="text-xs font-black uppercase tracking-widest">Gopay</span>
+        </div>
+        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
+            Pembayaran Aman & Otomatis Terverifikasi oleh Midtrans
+        </p>
+      </div>
+
     </div>
   );
 }
