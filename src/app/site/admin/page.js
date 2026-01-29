@@ -11,6 +11,7 @@ export default function AdminOverview() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // API Route tetap sama (tidak perlu pakai /site/)
     fetch('/api/admin/overview')
       .then(res => res.ok ? res.json() : null)
       .then(json => { setData(json); setLoading(false); })
@@ -108,17 +109,19 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      {/* QUICK ACTIONS */}
+      {/* QUICK ACTIONS (UPDATED LINKS) */}
       <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-100">
-        <Link href="/admin/transactions" className="flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl hover:bg-blue-600 transition-all text-[11px] font-semibold uppercase tracking-[0.15em] shadow-xl shadow-slate-200 active:scale-95">
+        {/* FIX: Tambahkan /site/ di depan semua link admin */}
+        <Link href="/site/admin/transactions" className="flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-2xl hover:bg-blue-600 transition-all text-[11px] font-semibold uppercase tracking-[0.15em] shadow-xl shadow-slate-200 active:scale-95">
           <Wallet size={16} /> Kelola Transaksi
         </Link>
         
-        <Link href="/admin/broadcast" className="flex items-center gap-3 bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl hover:border-blue-600 hover:text-blue-600 transition-all text-[11px] font-semibold uppercase tracking-[0.15em] shadow-sm active:scale-95">
+        <Link href="/site/admin/broadcast" className="flex items-center gap-3 bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl hover:border-blue-600 hover:text-blue-600 transition-all text-[11px] font-semibold uppercase tracking-[0.15em] shadow-sm active:scale-95">
           <Megaphone size={16} /> Kirim Broadcast
         </Link>
 
-        <Link href="/admin/settings" className="flex items-center gap-3 bg-white border border-slate-200 text-slate-400 px-8 py-4 rounded-2xl hover:bg-slate-50 transition-all text-[11px] font-semibold uppercase tracking-[0.15em]">
+        {/* Jika belum ada halaman settings, bisa biarkan # atau buat pagenya */}
+        <Link href="/site/admin/settings" className="flex items-center gap-3 bg-white border border-slate-200 text-slate-400 px-8 py-4 rounded-2xl hover:bg-slate-50 transition-all text-[11px] font-semibold uppercase tracking-[0.15em]">
           <Settings size={16} /> Konfigurasi
         </Link>
       </div>

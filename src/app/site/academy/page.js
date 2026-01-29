@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-// PERBAIKAN: Import Link dari next/link
 import Link from 'next/link'; 
 import { 
   BookOpen, Clock, ArrowLeft, ArrowRight, 
@@ -18,7 +17,7 @@ function AcademyContent() {
   const [userRating, setUserRating] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  // DATA ARTIKEL PANJANG, INFORMATIF, & PREMIUM
+  // DATA ARTIKEL
   const articles = [
     {
       id: "1",
@@ -78,13 +77,14 @@ function AcademyContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // --- TAMPILAN DETAIL ARTIKEL (SAAT DIKLIK) ---
+  // --- TAMPILAN DETAIL ARTIKEL ---
   if (selectedArticle) {
     return (
       <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <button onClick={() => window.history.back()} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors text-[10px] font-black uppercase tracking-[0.2em]">
+        {/* FIX: Ganti tombol back jadi Link ke /site/academy agar lebih aman jika dibuka di tab baru */}
+        <Link href="/site/academy" className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors text-[10px] font-black uppercase tracking-[0.2em]">
           <ArrowLeft size={16} /> Kembali ke List Strategi
-        </button>
+        </Link>
         
         <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-2xl overflow-hidden">
             {/* Header Detail */}
@@ -107,7 +107,7 @@ function AcademyContent() {
                 </div>
             </div>
 
-            {/* Isi Konten Panjang */}
+            {/* Isi Konten */}
             <div className="p-10 md:p-16 pt-10 space-y-12">
                 <p className="text-xl font-medium text-slate-600 leading-relaxed italic border-l-4 border-amber-400 pl-8">
                   "{selectedArticle.content.intro}"
@@ -128,10 +128,10 @@ function AcademyContent() {
                     <p className="text-slate-300 leading-relaxed font-normal">{selectedArticle.content.conclusion}</p>
                 </div>
 
-                {/* Engagement: Rating & Share */}
+                {/* Rating & Share */}
                 <div className="pt-10 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="space-y-4 text-center md:text-left">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sangat Bermanfaat? Beri Rating Bapak</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sangat Bermanfaat? Beri Rating</p>
                         <div className="flex items-center gap-2 justify-center md:justify-start">
                             {[1, 2, 3, 4, 5].map((star) => (
                                 <button 
@@ -161,10 +161,10 @@ function AcademyContent() {
     );
   }
 
-  // --- TAMPILAN LIST ARTIKEL (UTAMA) ---
+  // --- TAMPILAN LIST ARTIKEL ---
   return (
     <div className="space-y-12">
-      {/* Header Premium Academy */}
+      {/* Header */}
       <div className="bg-[#0A0C10] rounded-[3.5rem] p-12 md:p-20 text-white relative overflow-hidden shadow-2xl border border-amber-500/10 group">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-500/5 blur-[120px] rounded-full -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-6">
@@ -194,7 +194,8 @@ function AcademyContent() {
              </div>
              <div className="flex justify-between items-center pt-10 mt-10 border-t border-slate-50">
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{art.read} Baca</span>
-                <Link href={`/academy?id=${art.id}`} className="text-[10px] font-black text-blue-600 uppercase flex items-center gap-2 group-hover:gap-4 transition-all">
+                {/* FIX: Tambahkan /site/ di depan link detail */}
+                <Link href={`/site/academy?id=${art.id}`} className="text-[10px] font-black text-blue-600 uppercase flex items-center gap-2 group-hover:gap-4 transition-all">
                   Pelajari Strategi <ArrowRight size={16}/>
                 </Link>
              </div>
@@ -205,7 +206,7 @@ function AcademyContent() {
   );
 }
 
-// Wrapper Suspense (Penting untuk useSearchParams di Next.js)
+// Wrapper Suspense
 export default function JituAcademyPage() {
   return (
     <div className="max-w-[1400px] mx-auto pb-20 pt-4 px-4 md:px-10 font-sans antialiased text-slate-900">

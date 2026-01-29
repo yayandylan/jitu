@@ -27,10 +27,6 @@ export default function DashboardPage() {
     fetch('/api/user/me')
       .then(res => res.json())
       .then(data => {
-        // Log ini untuk memastikan status isPremium sudah sinkron dengan DB
-        console.log("🔍 [DEBUG] Data User:", data.user);
-        console.log("💎 [DEBUG] Status Premium:", data.user?.isPremium);
-
         if(data.user) setUser(data.user);
         setLoading(false);
       })
@@ -40,43 +36,47 @@ export default function DashboardPage() {
       });
   }, []);
 
-  // KONFIGURASI TOOLS
+  // KONFIGURASI TOOLS (LINK SUDAH DIPERBAIKI)
   const tools = [
     {
       title: "Riset Produk Winning",
       desc: "Analisa potensi ide bisnis & strategi blue ocean.",
       icon: <Search className="w-8 h-8 text-blue-600" />,
-      href: "/tools/riset-produk",
+      // FIX: Tambahkan /site/ di depan
+      href: "/site/tools/riset-produk", 
       color: "bg-blue-50 border-blue-100 hover:border-blue-300",
       status: "Ready",
-      isFree: true // AKSES GRATIS
+      isFree: true 
     },
     {
       title: "Validasi Market & CTWA",
       desc: "Blueprint targeting FB Ads & copywriting WA.",
       icon: <Target className="w-8 h-8 text-indigo-600" />,
-      href: "/tools/validasi-market",
+      // FIX: Tambahkan /site/ di depan
+      href: "/site/tools/validasi-market",
       color: "bg-indigo-50 border-indigo-100 hover:border-indigo-300",
       status: "Ready",
-      isFree: false // PREMIUM ONLY
+      isFree: false 
     },
     {
       title: "Magic Ad Script",
       desc: "Generate caption iklan & naskah video TikTok.",
       icon: <Clapperboard className="w-8 h-8 text-pink-600" />,
-      href: "/tools/magic-ad-script",
+      // FIX: Tambahkan /site/ di depan
+      href: "/site/tools/magic-ad-script",
       color: "bg-pink-50 border-pink-100 hover:border-pink-300",
       status: "New",
-      isFree: false // PREMIUM ONLY
+      isFree: false 
     },
     {
       title: "Audit Iklan & Funnel",
       desc: "Cek 'message match' iklan vs landing page.",
       icon: <ScanEye className="w-8 h-8 text-teal-600" />,
-      href: "/tools/ad-review",
+      // FIX: Tambahkan /site/ di depan
+      href: "/site/tools/ad-review",
       color: "bg-teal-50 border-teal-100 hover:border-teal-300",
       status: "New",
-      isFree: false // PREMIUM ONLY
+      isFree: false 
     },
     {
       title: "Generate Gambar Iklan",
@@ -118,7 +118,8 @@ export default function DashboardPage() {
       e.preventDefault(); 
       const confirmTopup = confirm("🔒 Fitur Terkunci!\n\nFitur ini khusus Member Premium. Top Up saldo minimal sekali untuk membuka semua akses.\n\nMau Top Up sekarang?");
       if(confirmTopup) {
-        router.push('/topup');
+        // FIX: Redirect ke halaman Topup yang benar
+        router.push('/site/topup');
       }
     }
   };
@@ -149,7 +150,8 @@ export default function DashboardPage() {
           <div className="bg-white text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 border border-slate-200 shadow-sm">
             <div className="w-2 h-2 bg-slate-300 rounded-full" />
             <span>FREE MEMBER</span>
-            <Link href="/topup" className="text-blue-600 hover:text-blue-700 text-xs font-extrabold ml-1 underline decoration-2 underline-offset-4">UPGRADE ↗</Link>
+            {/* FIX: Link ke Topup */}
+            <Link href="/site/topup" className="text-blue-600 hover:text-blue-700 text-xs font-extrabold ml-1 underline decoration-2 underline-offset-4">UPGRADE ↗</Link>
           </div>
         )}
       </div>

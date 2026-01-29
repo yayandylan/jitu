@@ -10,7 +10,7 @@ import {
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
   LogOut, Zap, ShieldCheck, Wallet, Plus, Settings,
   Menu, X, LayoutTemplate, 
-  LockKeyhole, Flame, Rocket 
+  LockKeyhole, Flame 
 } from 'lucide-react';
 
 const poppins = Poppins({ 
@@ -27,7 +27,6 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     fetchUserData();
-    // Tutup sidebar otomatis saat pindah halaman di mobile
     setSidebarOpen(false);
   }, [pathname]);
 
@@ -45,6 +44,7 @@ export default function DashboardLayout({ children }) {
   };
 
   const menuItems = [
+    // FIX: Tambah /site/ di depan semua link internal dashboard
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     { section: 'TOOLS UTAMA' },
     { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
@@ -72,6 +72,7 @@ export default function DashboardLayout({ children }) {
     }
     if (!item.isFree && !userData?.isPremium) {
       e.preventDefault();
+      // FIX: Redirect Topup ke dalam folder site
       router.push('/site/topup');
       setSidebarOpen(false);
     }
@@ -80,7 +81,7 @@ export default function DashboardLayout({ children }) {
   return (
     <div className={`min-h-screen bg-slate-50 flex ${poppins.className} tracking-tighter`}>
       
-      {/* --- MOBILE TOP HEADER (Hanya muncul di HP) --- */}
+      {/* --- MOBILE HEADER --- */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-100 z-[60] flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg">
@@ -99,10 +100,10 @@ export default function DashboardLayout({ children }) {
         </div>
       </header>
 
-      {/* --- BACKDROP OVERLAY (Mobile Only) --- */}
+      {/* --- BACKDROP MOBILE --- */}
       {isSidebarOpen && (
         <div 
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[45] md:hidden transition-opacity duration-300"
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[45] md:hidden"
             onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -113,7 +114,7 @@ export default function DashboardLayout({ children }) {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         
-        {/* LOGO AREA (Hidden on Mobile Header is enough, but kept for desktop) */}
+        {/* LOGO DESKTOP */}
         <div className="h-16 hidden md:flex items-center justify-between px-5 border-b border-slate-50 shrink-0">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1 rounded-lg shadow-md">
@@ -124,7 +125,7 @@ export default function DashboardLayout({ children }) {
           <NotificationBell />
         </div>
 
-        {/* LOGO AREA FOR MOBILE (Inside Sidebar) */}
+        {/* LOGO MOBILE INSIDE SIDEBAR */}
         <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-slate-50 shrink-0">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Navigation Menu</span>
             <button onClick={() => setSidebarOpen(false)} className="p-1 text-slate-400"><X size={20}/></button>
@@ -150,7 +151,8 @@ export default function DashboardLayout({ children }) {
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">pts</span>
                 </div>
-                <Link href="/topup" className="bg-blue-600 w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded-xl text-white shadow-lg hover:scale-105 active:scale-95 transition-all">
+                {/* FIX: Tombol Topup (Plus) diarahkan ke /site/topup */}
+                <Link href="/site/topup" className="bg-blue-600 w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded-xl text-white shadow-lg hover:scale-105 active:scale-95 transition-all">
                   <Plus size={16} strokeWidth={3} />
                 </Link>
               </div>
@@ -158,7 +160,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
 
-        {/* NAVIGATION TOOLS */}
+        {/* MENU ITEMS */}
         <nav className="flex-1 overflow-y-auto px-3 md:px-2 space-y-1 mt-2 custom-scrollbar">
           {menuItems.map((item, index) => {
             if (item.section) {
@@ -196,6 +198,7 @@ export default function DashboardLayout({ children }) {
                   <span className="flex-1 tracking-tight">{item.name}</span>
                 </div>
 
+                {/* Badge Logic */}
                 {isLocked ? (
                     <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-2 py-1 rounded-lg shadow-sm">
                         <LockKeyhole size={10} className="text-white" strokeWidth={3} />
@@ -221,20 +224,22 @@ export default function DashboardLayout({ children }) {
           })}
         </nav>
 
-        {/* FOOTER */}
+        {/* FOOTER SIDEBAR */}
         <div className="p-4 border-t border-slate-100 shrink-0 space-y-1 bg-white">
-           <Link href="/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
+           {/* FIX: Link ke Profile jadi /site/profile */}
+           <Link href="/site/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
               <Settings size={20} className="text-slate-400" /> Profil & Setting
            </Link>
-           <button onClick={() => { deleteCookie('token'); window.location.href = "/site/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+           
+           {/* LOGOUT: Tetap ke /login (Root) karena folder login ada di src/app/login */}
+           <button onClick={() => { deleteCookie('token'); window.location.href = "/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
               <LogOut size={20} /> Keluar Aplikasi
            </button>
         </div>
       </aside>
 
-      {/* --- MAIN CONTENT AREA --- */}
+      {/* --- CONTENT AREA --- */}
       <div className={`flex-1 w-full transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'md:ml-64'}`}>
-        {/* Padding Top hanya di Mobile karena ada Fixed Header */}
         <main className="pt-20 md:pt-8 p-4 md:p-8 max-w-7xl mx-auto leading-tight min-h-screen">
             {children}
         </main>

@@ -2,12 +2,13 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import Link from 'next/link';
-import connectDB from '../../../lib/db';
-import User from '../../../models/User';
+// Pastikan path ini sesuai dengan struktur folder Bapak
+import connectDB from '@/lib/db'; 
+import User from '@/models/User';
 import { 
   LayoutDashboard, Users, Receipt, Settings, 
   Wrench, LogOut, ShieldCheck, Megaphone, Zap, ChevronRight,
-  Ticket, Gift // TAMBAHKAN IKON GIFT
+  Ticket, Gift 
 } from 'lucide-react';
 
 export default async function AdminLayout({ children }) {
@@ -19,13 +20,15 @@ export default async function AdminLayout({ children }) {
     await connectDB();
     const user = await User.findById(decoded.userId);
 
-    if (!user || user.role !== 'admin') redirect('/dashboard');
+    // FIX: Redirect ke /site/dashboard jika bukan admin
+    if (!user || user.role !== 'admin') redirect('/site/dashboard');
 
     const adminMenus = [
-      { name: 'Overview', href: '/admin', icon: <LayoutDashboard size={18} /> },
+      // FIX: Link Overview ke /site/admin
+      { name: 'Overview', href: '/site/admin', icon: <LayoutDashboard size={18} /> },
       { name: 'Kelola Transaksi', href: '/site/admin/transactions', icon: <Receipt size={18} /> },
       { name: 'Voucher Promo', href: '/site/admin/vouchers', icon: <Ticket size={18} /> },
-      { name: 'Kelola Paket', href: '/site/admin/packages', icon: <Gift size={18} /> }, // MENU BARU
+      { name: 'Kelola Paket', href: '/site/admin/packages', icon: <Gift size={18} /> },
       { name: 'Global Setting', href: '/site/admin/settings', icon: <Settings size={18} /> },
       { name: 'Manage User', href: '/site/admin/users', icon: <Users size={18} /> },
       { name: 'Config Tools', href: '/site/admin/tools', icon: <Wrench size={18} /> },
@@ -59,7 +62,7 @@ export default async function AdminLayout({ children }) {
              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-2 mb-4">Main Menu</p>
           </div>
           
-          {/* 2. Navigasi & Tombol Keluar */}
+          {/* 2. Navigasi */}
           <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
             {adminMenus.map((item, index) => (
               <Link
@@ -77,10 +80,11 @@ export default async function AdminLayout({ children }) {
               </Link>
             ))}
 
-            {/* TOMBOL KELUAR: Sekarang berada tepat di bawah daftar menu */}
+            {/* TOMBOL KELUAR */}
             <div className="pt-4 mt-4 border-t border-slate-800/50">
+                {/* FIX: Link Keluar ke /site/dashboard */}
                 <Link 
-                href="/dashboard" 
+                href="/site/dashboard" 
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-rose-500 hover:text-white transition-all text-[11px] font-bold uppercase tracking-wider group"
                 >
                 <LogOut size={18} className="text-slate-500 group-hover:text-white" />
@@ -89,7 +93,7 @@ export default async function AdminLayout({ children }) {
             </div>
           </nav>
 
-          {/* 3. Footer Area (Hanya Status Server) */}
+          {/* 3. Footer Area */}
           <div className="p-4 border-t border-slate-800/50">
             <div className="bg-white/5 rounded-2xl p-4">
                 <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Status Server</p>
