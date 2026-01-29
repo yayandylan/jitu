@@ -33,7 +33,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchData() {
         try {
-            // 1. Ambil Data User
+            // 1. Ambil Data User (Nama, Saldo, Status Premium)
             const userRes = await fetch('/api/user/me');
             const userData = await userRes.json();
             
@@ -41,11 +41,12 @@ export default function DashboardPage() {
                 setUserData(userData.user);
                 
                 // 2. Ambil History Penggunaan (Hanya jika user ada)
-                // Pastikan endpoint API ini sudah dibuat. Jika belum, data history akan kosong.
+                // Mengambil 4 riwayat terakhir untuk ditampilkan di dashboard
                 const historyRes = await fetch(`/api/user/history?limit=4`); 
                 if (historyRes.ok) {
                     const historyData = await historyRes.json();
-                    setHistory(historyData.history || []);
+                    // Fallback ke array kosong jika data history belum ada
+                    setHistory(historyData.data || []);
                 }
             }
         } catch (error) {
@@ -84,14 +85,19 @@ export default function DashboardPage() {
             <h1 className="text-lg md:text-xl font-bold tracking-tight leading-none truncate flex items-center gap-2">
                 Hai, {userData.name?.split(' ')[0]}! {userData.isPremium ? '💎' : '🔥'}
             </h1>
-            <p className="text-[9px] md:text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-1">Ready to win the market?</p>
+            <p className="text-[9px] md:text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-1">
+                Saldo: <span className="text-blue-600 font-bold">{userData.credits?.toLocaleString()} Poin</span>
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/site/topup" className="hidden md:flex bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-blue-700 transition-all items-center gap-2 shadow-lg shadow-blue-500/20">
+             <Wallet size={14} /> Isi Saldo
+          </Link>
           <button className="p-2.5 bg-white border border-slate-100 rounded-2xl text-slate-300 hover:text-blue-600 shadow-sm transition-all relative">
             <Bell size={18}/>
-            {/* Dot Notifikasi Statis (Bisa diupdate nanti) */}
+            {/* Dot Notifikasi Statis */}
             <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
           </button>
         </div>
@@ -171,13 +177,16 @@ export default function DashboardPage() {
                     <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0"><Rocket size={16} /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-bold text-slate-800 truncate uppercase tracking-tighter leading-none">
-                          {h.description || "Penggunaan Tool"}
+                          {h.toolType?.replace(/-/g, ' ') || "Generate AI"}
                       </p>
                       <p className="text-[9px] text-slate-400 font-medium uppercase mt-1 tracking-tighter">
                           {new Date(h.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </p>
                     </div>
-                    <span className="text-[11px] font-black text-rose-500 tabular-nums">-{h.amount}</span>
+                    {/* Tampilkan judul singkat hasil generate */}
+                    <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded truncate max-w-[80px]">
+                        {h.title || 'Result'}
+                    </span>
                   </div>
                 ))
             )}
