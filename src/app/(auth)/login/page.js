@@ -25,8 +25,8 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        // Redirection berdasarkan role (Admin ke /admin, User ke /dashboard)
-        const destination = data.user.role === 'admin' ? '/admin' : '/dashboard';
+        // Redirection berdasarkan role (Admin ke /site/admin, User ke /site/dashboard)
+        const destination = data.user.role === 'admin' ? '/site/admin' : '/site/dashboard';
         router.push(destination);
         router.refresh();
       } else {
