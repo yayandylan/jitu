@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
-// FIX: Gunakan Transaction, bukan PointHistory
-import Transaction from '@/models/Transaction';
+// FIX: Pastikan pakai History (bukan PointHistory/Transaction)
+import History from '@/models/History'; 
 
 export async function GET(req) {
   try {
@@ -12,19 +12,22 @@ export async function GET(req) {
     
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     await connectDB();
+    
+    // Ambil query params tool (opsional)
+    const url = new URL(req.url);
+    const toolType = url.searchParams.get('tool');
+    const limit = Number(url.searchParams.get('limit')) || 20;
 
-    const limit = Number(new URL(req.url).searchParams.get('limit')) || 10;
+    let query = { userId: decoded.userId };
+    if (toolType) query.toolType = toolType;
 
-    // Ambil history transaksi tipe 'out' (penggunaan tools)
-    const history = await Transaction.find({ 
-        userId: decoded.userId,
-        type: 'out' // Filter hanya pengeluaran
-    })
-    .sort({ createdAt: -1 })
-    .limit(limit);
+    const history = await History.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit);
 
-    return NextResponse.json({ history });
+    return NextResponse.json({ data: history });
   } catch (error) {
+    console.error("History Error:", error);
     return NextResponse.json({ message: 'Error fetching history' }, { status: 500 });
   }
 }

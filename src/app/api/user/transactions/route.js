@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
-// FIX: Hapus PointHistory, cukup gunakan Transaction saja
+// FIX: Hapus PointHistory, pakai Transaction saja
 import Transaction from '@/models/Transaction'; 
 
 export async function GET(req) {
@@ -15,8 +15,7 @@ export async function GET(req) {
 
     const limit = Number(new URL(req.url).searchParams.get('limit')) || 20;
 
-    // Ambil semua transaksi (Topup & Penggunaan) dari satu koleksi 'Transaction'
-    // Filter berdasarkan userId, urutkan dari yang terbaru
+    // Ambil semua transaksi (Topup & Usage)
     const transactions = await Transaction.find({ userId: decoded.userId })
       .sort({ createdAt: -1 })
       .limit(limit);
