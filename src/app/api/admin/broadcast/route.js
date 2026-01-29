@@ -1,106 +1,127 @@
 import { NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
 import connectDB from '@/lib/db';
-import userModel from '@/models/User';
-import notificationModel from '@/models/Notification';
-import { sendEmail } from '@/lib/mail';
+import User from '@/models/User';
+import Broadcast from '@/models/Broadcast'; // Pastikan model Broadcast ada
 
-export const dynamic = 'force-dynamic';
+// --- CONFIG EMAIL ---
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
 
-// 1. [GET] AMBIL RIWAYAT BROADCAST
+// GET: Ambil History Broadcast
 export async function GET() {
   try {
     await connectDB();
-    
-    // Ambil siaran massal (target: all)
-    const history = await notificationModel.find({ target: 'all' })
-      .sort({ createdAt: -1 })
-      .limit(50);
-
+    // Urutkan dari yang terbaru
+    const history = await Broadcast.find({}).sort({ createdAt: -1 }).limit(20);
     return NextResponse.json({ history });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Error fetching history' }, { status: 500 });
   }
 }
 
-// 2. [POST] KIRIM BROADCAST DENGAN SEGMENTASI (FREE / PREMIUM)
+// POST: Kirim Broadcast Baru
 export async function POST(req) {
   try {
-    await connectDB();
-    const { title, message, type, sendEmailToAll, targetGroup } = await req.json();
+    const { title, message, type, sendEmailToAll, sendViaInApp, targetGroup } = await req.json();
 
-    if (!title || !message) {
-      return NextResponse.json({ message: "Judul dan pesan wajib diisi!" }, { status: 400 });
+    await connectDB();
+
+    // 1. FILTER USER BERDASARKAN TARGET GROUP
+    let query = {}; // Default: Semua User
+    
+    if (targetGroup === 'premium') {
+        query = { isPremium: true };
+    } else if (targetGroup === 'free') {
+        query = { isPremium: { $ne: true } }; // isPremium != true
+    }
+    
+    // Ambil list user yang sesuai kriteria
+    const users = await User.find(query).select('email name');
+
+    if (users.length === 0) {
+        return NextResponse.json({ message: 'Tidak ada user dalam kategori ini.' }, { status: 400 });
     }
 
-    // --- LOGIKA FILTER AUDIENS ---
-    // TargetGroup: 'all', 'free', atau 'premium'
-    let userFilter = { role: 'user' };
-    if (targetGroup === 'premium') userFilter.isPremium = true;
-    if (targetGroup === 'free') userFilter.isPremium = false;
-
-    // A. SIMPAN NOTIFIKASI KE DATABASE
-    // Kita simpan targetGroup-nya agar di sisi Dashboard User bisa difilter
-    const newNotification = await notificationModel.create({ 
-      title, 
-      message, 
-      type: type || 'info',
-      target: 'all', // Tetap 'all' untuk menandakan siaran massal
-      targetGroup: targetGroup || 'all', // Field baru untuk filter Free/Premium
-      userId: null
+    // 2. SIMPAN LOG BROADCAST KE DATABASE
+    const newBroadcast = new Broadcast({
+      title,
+      message,
+      type,
+      targetGroup: targetGroup || 'all',
+      sentToCount: users.length,
+      createdAt: new Date()
     });
+    await newBroadcast.save();
 
-    // B. KIRIM EMAIL SESUAI SEGMENTASI
+    // 3. KIRIM NOTIFIKASI IN-APP (Disimpan di User Model)
+    // Fitur ini opsional, tergantung apakah User Model punya field 'notifications'
+    if (sendViaInApp) {
+        // Update banyak dokumen sekaligus (Bulk Write lebih efisien)
+        await User.updateMany(query, {
+            $push: {
+                notifications: {
+                    title,
+                    message,
+                    type,
+                    date: new Date(),
+                    isRead: false
+                }
+            }
+        });
+    }
+
+    // 4. KIRIM EMAIL BLAST (Jika dipilih)
     if (sendEmailToAll) {
-      const users = await userModel.find(userFilter).select('email');
-      
-      if (users.length > 0) {
-        const emailPromises = users.map(user => 
-          sendEmail({
-            to: user.email,
-            subject: `[JITU ${targetGroup.toUpperCase()}] ${title}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                <h2 style="color: #2563eb; margin-bottom: 10px;">Jitu Digital Update</h2>
-                <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 20px;">
-                <h3 style="color: #333;">${title}</h3>
-                <p style="color: #555; line-height: 1.6;">${message}</p>
-                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #999;">
-                  <p>Anda menerima email ini sebagai member ${targetGroup === 'all' ? 'Jitu Digital' : targetGroup.toUpperCase()}.</p>
-                  <p>Login ke <a href="${process.env.NEXT_PUBLIC_APP_URL}" style="color: #2563eb;">Dashboard</a> untuk info selengkapnya.</p>
-                </div>
+      // Kirim paralel (Hati-hati limit Gmail, untuk ribuan user butuh layanan SMTP pro seperti SendGrid/Resend)
+      const emailPromises = users.map(user => {
+        return transporter.sendMail({
+          from: `"Jitu Digital Team" <${process.env.GMAIL_USER}>`,
+          to: user.email,
+          subject: `📢 ${title}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+              <h2 style="color: #2563EB;">Halo, ${user.name}! 👋</h2>
+              <div style="background: #F8FAFC; padding: 15px; border-left: 4px solid #2563EB; margin: 20px 0;">
+                <h3 style="margin: 0 0 10px;">${title}</h3>
+                <p style="margin: 0; color: #475569; line-height: 1.6;">${message}</p>
               </div>
-            `
-          }).catch(err => console.error(`Gagal kirim ke ${user.email}`))
-        );
-        await Promise.allSettled(emailPromises);
-      }
+              <p style="font-size: 12px; color: #94a3b8; margin-top: 30px;">
+                Anda menerima email ini karena terdaftar sebagai member <strong>${targetGroup === 'all' ? 'Jitu Digital' : targetGroup === 'premium' ? 'Premium' : 'Free'}</strong>.
+              </p>
+            </div>
+          `
+        }).catch(err => console.error(`Gagal kirim ke ${user.email}:`, err));
+      });
+
+      // Jalankan tanpa menunggu semua selesai agar respon cepat (Fire & Forget)
+      Promise.allSettled(emailPromises);
     }
 
     return NextResponse.json({ 
-        success: true, 
-        message: `Broadcast berhasil dikirim ke ${targetGroup} member!` 
+        message: `Broadcast berhasil dikirim ke ${users.length} user (${targetGroup}).` 
     });
 
   } catch (error) {
     console.error("Broadcast Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Server Error: ' + error.message }, { status: 500 });
   }
 }
 
-// 3. [DELETE] TARIK / HAPUS BROADCAST
+// DELETE: Hapus Log Broadcast
 export async function DELETE(req) {
   try {
-    await connectDB();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
-    }
-
-    await notificationModel.findByIdAndDelete(id);
-    return NextResponse.json({ success: true, message: "Pesan berhasil ditarik" });
+    await connectDB();
+    await Broadcast.findByIdAndDelete(id);
+    return NextResponse.json({ message: 'Deleted' });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ message: 'Error' }, { status: 500 });
   }
 }

@@ -1,162 +1,220 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Zap, Search, Target, PenTool, ShieldCheck, 
   ImageIcon, BarChart3, Calculator, 
   CheckCircle2, ArrowRight, Menu, X, Flame, 
-  Unlock, Layers, Gift, Star, TrendingUp, Crown,
-  ChevronDown, Mail, Instagram, MessageSquare
+  Layers, Gift, Crown, Mail, Instagram, MessageSquare, PlayCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import JsonLd from '@/components/JsonLd'; // Import komponen GEO
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // DATA UNTUK AI (GEO)
+  const jsonLdData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Jitu Digital",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "Platform AI Marketing Intelligence no.1 di Indonesia untuk Riset Produk, Copywriting, dan Audit Iklan.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
+    "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.9", "ratingCount": "1500" }
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-poppins selection:bg-blue-600 selection:text-white tracking-tighter overflow-x-hidden">
-      
-      {/* --- 1. NAVBAR --- */}
-      <nav className="border-b border-slate-100 bg-white/80 backdrop-blur-md fixed w-full z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-blue-600 p-1.5 rounded-xl shadow-lg shadow-blue-500/20">
-              <Zap className="w-4 h-4 text-white fill-white" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-600 selection:text-white tracking-tight overflow-x-hidden relative">
+      <JsonLd data={jsonLdData} />
+
+      {/* BACKGROUND EFFECTS */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[10%] left-[-10%] w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[120px]" />
+      </div>
+
+      {/* NAVBAR */}
+      <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-slate-200 py-3' : 'bg-transparent py-6'}`}>
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 group cursor-pointer">
+            <div className="bg-slate-900 p-2 rounded-xl shadow-lg shadow-slate-900/20 group-hover:scale-110 transition-transform">
+              <Zap className="w-5 h-5 text-yellow-400 fill-yellow-400" />
             </div>
-            <span className="text-lg font-black uppercase tracking-tighter italic">JITU <span className="text-blue-600 not-italic">DIGITAL</span></span>
+            <span className="text-xl font-black uppercase tracking-tighter italic text-slate-900">JITU <span className="text-blue-600 not-italic">DIGITAL</span></span>
           </div>
 
-          <div className="hidden md:flex items-center gap-6 text-[10px] font-bold uppercase tracking-[0.2em]">
-            <Link href="/login" className="text-slate-900 bg-slate-100 px-6 py-3 rounded-xl hover:bg-slate-200 transition-all">Login</Link>
-            <Link href="/register" className="bg-[#0F172A] text-white px-6 py-3 rounded-xl hover:bg-blue-600 transition-all shadow-xl active:scale-95">Mulai Sekarang</Link>
+          <div className="hidden md:flex items-center gap-8 text-[11px] font-bold uppercase tracking-[0.15em]">
+            <Link href="#fitur" className="text-slate-500 hover:text-blue-600 transition-colors">Fitur</Link>
+            <Link href="#harga" className="text-slate-500 hover:text-blue-600 transition-colors">Harga</Link>
+            <div className="w-px h-6 bg-slate-200 mx-2"></div>
+            <Link href="/login" className="text-slate-900 hover:text-blue-600 transition-colors">Masuk</Link>
+            <Link href="/register" className="bg-blue-600 text-white px-7 py-3 rounded-xl hover:bg-slate-900 hover:shadow-lg hover:shadow-blue-600/30 transition-all active:scale-95 flex items-center gap-2">
+              Daftar Gratis <ArrowRight size={14}/>
+            </Link>
           </div>
-
-          <button className="md:hidden p-2 text-slate-600" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button className="md:hidden p-2 text-slate-900" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
-
+        {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-white border-b border-slate-100 p-6 space-y-4 animate-in slide-in-from-top-5 text-center">
-            <Link href="/login" className="block text-sm font-bold uppercase text-blue-600 py-2">Login</Link>
-            <Link href="/register" className="block w-full text-center bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Daftar Akun</Link>
+          <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-100 p-6 space-y-4 animate-in slide-in-from-top-5 text-center shadow-2xl">
+            <Link href="/login" className="block text-sm font-bold uppercase text-slate-600 py-2">Login Member</Link>
+            <Link href="/register" className="block w-full text-center bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg">Buka Akses</Link>
           </div>
         )}
       </nav>
 
-      {/* --- 2. HERO SECTION --- */}
-      <section className="pt-32 md:pt-48 pb-20 px-6 text-center max-w-5xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-[9px] font-black uppercase tracking-widest text-blue-600 mb-8 animate-bounce">
-          <Star size={10} className="fill-blue-600" /> Capek Iklan Boncos Terus?
+      {/* HERO SECTION */}
+      <section className="pt-40 md:pt-52 pb-24 px-6 text-center max-w-6xl mx-auto relative z-10">
+        <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-blue-100 shadow-xl shadow-blue-900/5 mb-10 hover:scale-105 transition-transform cursor-default">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          </span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">AI MarketingOS v2.0 Live</span>
         </div>
-        <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-slate-900 leading-[0.95] mb-8 uppercase italic">IKLAN PROFIT<br/><span className="text-blue-600 not-italic">ADALAH JITU.</span></h1>
-        <p className="text-sm md:text-lg text-slate-500 mb-10 max-w-2xl mx-auto font-medium leading-relaxed px-4 text-pretty">Gunakan kecerdasan AI untuk memvalidasi market, riset produk, hingga audit funnel secara otomatis. Berhenti menebak, mulai mendominasi.</p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 px-4">
-          <Link href="/register" className="w-full sm:w-auto px-10 py-5 bg-[#0F172A] text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-blue-600 transition-all active:scale-95 flex items-center justify-center gap-3">AMBIL POIN GRATIS <ArrowRight size={16}/></Link>
-        </div>
-      </section>
 
-      {/* --- 3. THE ARSENAL --- */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16 space-y-2">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase italic">SENJATA <span className="text-blue-600 not-italic">PERANG</span></h2>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">AI-Powered Tools for Digital Marketer</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <WeaponCard icon={<Search />} color="bg-blue-50 text-blue-600" title="Riset Produk" desc="Cari ide winning product tanpa perlu tebak-tebakan." />
-            <WeaponCard icon={<Target />} color="bg-indigo-50 text-indigo-600" title="Validasi Market" desc="Pastikan market haus sebelum lo bakar budget iklan." />
-            <WeaponCard icon={<PenTool />} color="bg-rose-50 text-rose-600" title="Magic Ad Script" desc="Copywriting menghipnotis yang bikin orang klik." />
-            <WeaponCard icon={<ShieldCheck />} color="bg-emerald-50 text-emerald-600" title="Audit Funnel" desc="Temukan kebocoran landing page lo secara otomatis." />
-            <WeaponCard icon={<ImageIcon />} color="bg-amber-50 text-amber-600" title="Generate Gambar" desc="Bikin visual iklan premium dengan bantuan AI." />
-            <WeaponCard icon={<BarChart3 />} color="bg-violet-50 text-violet-600" title="Analisis Iklan" desc="Bedah data ads lo biar tau langkah selanjutnya." />
-            <WeaponCard icon={<Calculator />} color="bg-cyan-50 text-cyan-600" title="Kalkulator Ads" desc="Hitung ROAS dan BEP dengan akurasi 100%." />
-            <WeaponCard icon={<Layers />} color="bg-slate-900 text-white" title="LP Builder" desc="Bikin halaman jualan High-Converting dalam detik." />
-          </div>
-        </div>
-      </section>
-
-      {/* --- 4. PRICING (Royal Edition Update) --- */}
-      <section id="pricing" className="py-24 bg-slate-50 relative overflow-hidden">
-        {/* Luxury Gold Ambient Light */}
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-amber-500/10 blur-[150px] rounded-full -mr-48 -mb-48" />
+        <h1 className="text-5xl sm:text-7xl md:text-9xl font-black text-slate-900 leading-[0.9] mb-10 uppercase italic tracking-tighter">
+          IKLAN <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">PROFIT</span><br/>
+          ADALAH JITU.
+        </h1>
         
+        <p className="text-base md:text-xl text-slate-500 mb-12 max-w-2xl mx-auto font-medium leading-relaxed px-4">
+          Platform intelijen digital untuk memvalidasi market, riset produk, hingga audit funnel iklan secara otomatis. <span className="text-slate-900 font-bold underline decoration-blue-400 decoration-2 underline-offset-4">Berhenti menebak, mulai mendominasi.</span>
+        </p>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-5 px-4">
+          <Link href="/register" className="w-full sm:w-auto px-10 py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-blue-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 group">
+            <Zap size={16} className="text-yellow-400 fill-yellow-400 group-hover:scale-125 transition-transform"/> 
+            Ambil Akses Gratis
+          </Link>
+          <button className="w-full sm:w-auto px-10 py-5 bg-white border border-slate-200 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-3 group">
+            <PlayCircle size={16} className="text-slate-400 group-hover:text-slate-900 transition-colors"/> 
+            Lihat Demo
+          </button>
+        </div>
+      </section>
+
+      {/* MARQUEE */}
+      <div className="py-10 bg-white border-y border-slate-100 overflow-hidden relative z-20">
+        <div className="max-w-7xl mx-auto px-6 text-center mb-6">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Dipercaya oleh Advertiser dari</p>
+        </div>
+        <div className="flex gap-16 animate-marquee whitespace-nowrap opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
+            {['Meta Ads', 'TikTok', 'Google', 'Shopee', 'Tokopedia', 'Shopify', 'WooCommerce', 'Lazada'].map((logo, i) => (
+                <span key={i} className="text-xl font-black text-slate-300 uppercase italic tracking-tighter">{logo}</span>
+            ))}
+             {['Meta Ads', 'TikTok', 'Google', 'Shopee', 'Tokopedia', 'Shopify', 'WooCommerce', 'Lazada'].map((logo, i) => (
+                <span key={`duplicate-${i}`} className="text-xl font-black text-slate-300 uppercase italic tracking-tighter">{logo}</span>
+            ))}
+        </div>
+      </div>
+
+      {/* BENTO GRID FEATURES */}
+      <section id="fitur" className="py-32 bg-white relative z-10">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-20 space-y-4">
+            <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase italic leading-none">ARSENAL <span className="text-blue-600 not-italic">LENGKAP</span></h2>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.4em]">All-in-One Marketing Intelligence</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 auto-rows-[280px]">
+            {/* Big Card */}
+            <div className="md:col-span-2 row-span-1 md:row-span-2 bg-slate-900 rounded-[2.5rem] p-10 relative overflow-hidden group shadow-2xl text-white">
+                <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:scale-125 transition-transform duration-700"><Target size={200} /></div>
+                <div className="relative z-10 h-full flex flex-col justify-between">
+                    <div className="bg-blue-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/40"><Target className="text-white" size={28} /></div>
+                    <div>
+                        <h3 className="text-3xl font-black uppercase italic mb-2 tracking-tighter">Validasi Market</h3>
+                        <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-xs">Jangan bakar uang untuk produk yang tidak diinginkan pasar. Biarkan AI membedah potensi cuan sebelum Anda mulai.</p>
+                    </div>
+                </div>
+            </div>
+            {/* Standard Cards */}
+            <BentoCard icon={<Search/>} title="Riset Produk" desc="Blue Ocean Strategy Finder." color="text-blue-600" bg="bg-blue-50" />
+            <BentoCard icon={<PenTool/>} title="Magic Script" desc="Hypnotic Copywriting Generator." color="text-indigo-600" bg="bg-indigo-50" />
+            
+            {/* Wide Card */}
+            <div className="md:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-xl text-white flex items-center justify-between">
+                 <div className="space-y-2 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/20 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest border border-white/10"><Flame size={12} className="text-yellow-300 fill-yellow-300" /> Hot Feature</div>
+                    <h3 className="text-2xl font-black uppercase italic tracking-tighter">Landing Page Builder</h3>
+                    <p className="text-blue-100 text-xs font-medium">Generate HTML sales page siap iklan dalam 10 detik.</p>
+                 </div>
+                 <div className="h-24 w-24 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 group-hover:rotate-90 transition-transform duration-500"><Layers size={40} /></div>
+            </div>
+
+            <BentoCard icon={<ShieldCheck/>} title="Audit Funnel" desc="Temukan kebocoran trafik." color="text-emerald-600" bg="bg-emerald-50" />
+            <BentoCard icon={<ImageIcon/>} title="Visual AI" desc="Generate mockup produk 3D." color="text-purple-600" bg="bg-purple-50" />
+            <BentoCard icon={<Calculator/>} title="Ad Calculator" desc="Hitung ROAS & BEP presisi." color="text-rose-600" bg="bg-rose-50" />
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING */}
+      <section id="harga" className="py-32 bg-[#F8FAFC] relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-100/50 rounded-full blur-[120px] -z-10" />
         <div className="max-w-6xl mx-auto px-6 relative z-10 text-center">
-          <div className="mb-16 space-y-3">
-             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full shadow-inner">
+          <div className="mb-20 space-y-4">
+             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-full shadow-sm mb-4">
                 <Crown size={14} className="text-amber-500 fill-amber-500" />
-                <span className="text-[10px] font-black text-amber-600 uppercase tracking-[0.3em]">VIP Ammunition System</span>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Investasi Cerdas</span>
              </div>
-             <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase italic leading-none">PILIH <span className="text-blue-600 not-italic">AMUNISI</span></h2>
-             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] italic">Investasi Tepat, Hasil Jitu.</p>
+             <h2 className="text-5xl md:text-7xl font-black text-slate-900 uppercase italic leading-none">PILIH <span className="text-blue-600 not-italic">AMUNISI</span></h2>
+             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.4em]">Top Up Sekali, Pakai Selamanya. Tanpa Langganan.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end">
-            <PricePack title="Starter Pack" price="24.900" totalPoints="1.100" bonus="Bonus +100 pts" />
-            <PricePack title="Pro Advertiser" price="99.000" totalPoints="6.000" popular bonus="Bonus +1.000 pts" />
+            <PricePack title="Starter Pack" price="24.900" totalPoints="1.100" />
+            <PricePack title="Pro Advertiser" price="99.000" totalPoints="6.000" bonus="Bonus +1.000 pts" highlight badge="Paling Laris"/>
             <PricePack title="Agency Scale" price="249.000" totalPoints="20.000" bonus="Bonus +5.000 pts" goldTheme />
           </div>
         </div>
       </section>
 
-      {/* --- 5. FAQ --- */}
-      <section className="py-24 bg-white relative">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-16 space-y-2">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase italic">TANYA <span className="text-blue-600 not-italic">JITU</span></h2>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">Hapus Keraguan, Ambil Keputusan.</p>
-          </div>
-          <div className="space-y-4">
-            <FaqItem q="Apa Poin Jitu bisa hangus atau ada masa expired?" a="TIDAK. Di Jitu Digital, peluru yang Bapak beli adalah milik Bapak selamanya. Tidak ada sistem bulanan, tidak ada poin hangus. Gunakan kapan saja Bapak butuh." />
-            <FaqItem q="Bisa dipakai untuk Iklan Facebook, TikTok, atau Google?" a="SANGAT BISA. AI Jitu dirancang untuk memahami algoritma platform besar tersebut. Mulai dari riset audiens hingga script iklan, semuanya disesuaikan dengan platform tujuan." />
-            <FaqItem q="Saya gaptek, apakah tools ini susah dioperasikan?" a="Kalau Bapak bisa ngetik di WhatsApp, Bapak pasti bisa pakai Jitu. User Interface kami buat se-simpel mungkin: Input Nama Produk -> Klik Tombol -> AI Selesaikan Pekerjaannya." />
-            <FaqItem q="Gimana cara dapet 500 Poin Gratisnya?" a="Cukup klik tombol 'Daftar' di atas. Setelah verifikasi akun, 500 Poin Jitu akan langsung mendarat di dashboard Bapak tanpa syarat kartu kredit apapun." />
-          </div>
-        </div>
-      </section>
-
-      {/* --- 6. FOOTER --- */}
-      <footer className="bg-[#0F172A] text-white pt-24 pb-8 relative overflow-hidden">
+      {/* FOOTER */}
+      <footer className="bg-[#020617] text-white pt-24 pb-10 relative overflow-hidden border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-20">
-            <div className="lg:col-span-5 space-y-8 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-3">
-                <div className="bg-blue-600 p-2 rounded-xl">
-                    <Zap className="w-6 h-6 text-white fill-white" />
-                </div>
-                <span className="text-3xl font-black italic uppercase tracking-tighter">JITU <span className="text-blue-500">DIGITAL</span></span>
+            <div className="lg:col-span-5 space-y-8">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 p-2.5 rounded-xl"><Zap className="w-5 h-5 text-white fill-white" /></div>
+                <span className="text-2xl font-black italic uppercase tracking-tighter">JITU <span className="text-blue-500">DIGITAL</span></span>
               </div>
-              <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm mx-auto md:mx-0 uppercase tracking-tight opacity-80 italic">
-                Pusat persenjataan AI paling mematikan untuk digital marketer Indonesia. Kami tidak menjual janji, kami memberikan data.
+              <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm uppercase tracking-tight opacity-70">
+                AI Marketing Intelligence Platform. Membantu UMKM & Agency scaling tanpa boncos.
               </p>
-              <div className="flex justify-center md:justify-start gap-4">
+              <div className="flex gap-4">
                  <SocialBtn icon={<Instagram size={18}/>} />
                  <SocialBtn icon={<MessageSquare size={18}/>} />
                  <SocialBtn icon={<Mail size={18}/>} />
               </div>
             </div>
-            <div className="lg:col-span-7 grid grid-cols-2 md:grid-cols-3 gap-10">
+            <div className="lg:col-span-7 grid grid-cols-2 gap-10">
                 <div className="space-y-6">
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">The Arsenal</h4>
-                    <ul className="space-y-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">
-                        <li>AI Research</li>
-                        <li>Magic Copy</li>
-                        <li>Ad Audit</li>
-                    </ul>
-                </div>
-                <div className="space-y-6">
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-white">Company</h4>
-                    <ul className="space-y-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest italic">
-                        <li><Link href="/login">Login Admin</Link></li>
-                        <li><Link href="/register">Daftar Member</Link></li>
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Akses</h4>
+                    <ul className="space-y-3 text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                        <li><Link href="/login" className="hover:text-blue-500 transition-colors">Login</Link></li>
+                        <li><Link href="/register" className="hover:text-blue-500 transition-colors">Daftar</Link></li>
                     </ul>
                 </div>
             </div>
           </div>
-          <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">&copy; 2026 Jitu Digital. Seluruh Hak Cipta Dilindungi.</p>
-            <div className="flex items-center gap-2">
+          <div className="pt-8 border-t border-slate-800 flex justify-between items-center gap-4">
+            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">&copy; 2026 Jitu Digital.</p>
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic tracking-tighter">All Systems Operational</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Online</span>
             </div>
           </div>
         </div>
@@ -165,97 +223,54 @@ export default function LandingPage() {
   );
 }
 
-// --- SUB-COMPONENTS ---
-
-function FaqItem({ q, a }) {
-    const [open, setOpen] = useState(false);
+// --- SUB COMPONENTS ---
+function BentoCard({ icon, title, desc, color, bg }) {
     return (
-        <div className={`group border rounded-[2rem] transition-all duration-300 ${open ? 'bg-[#0F172A] border-blue-600 shadow-xl' : 'bg-white border-slate-100 hover:border-blue-200 shadow-sm'}`}>
-            <button onClick={() => setOpen(!open)} className="w-full px-8 py-6 flex items-center justify-between text-left">
-                <span className={`text-[11px] md:text-xs font-black uppercase tracking-tight italic ${open ? 'text-white' : 'text-slate-900 group-hover:text-blue-600'}`}>{q}</span>
-                <ChevronDown size={18} className={`transition-transform duration-500 ${open ? 'rotate-180 text-blue-500' : 'text-slate-300'}`} />
-            </button>
-            <div className={`overflow-hidden transition-all duration-500 ${open ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="px-8 pb-6 text-[10px] font-medium text-slate-400 leading-relaxed italic border-t border-white/5 pt-4 uppercase tracking-tight">{a}</div>
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 hover:border-blue-200 hover:shadow-xl transition-all group flex flex-col items-start justify-between relative overflow-hidden">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${bg} ${color}`}>{icon}</div>
+            <div className="relative z-10">
+                <h3 className="text-lg font-black text-slate-900 mb-1 uppercase tracking-tight">{title}</h3>
+                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{desc}</p>
             </div>
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-slate-50 rounded-full group-hover:scale-150 transition-transform duration-500 -z-0" />
         </div>
     )
 }
 
 function SocialBtn({ icon }) {
-    return (
-        <button className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-slate-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95">{icon}</button>
-    )
+    return <button className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 hover:bg-blue-600 hover:text-white transition-all active:scale-95 hover:border-transparent">{icon}</button>
 }
 
-function WeaponCard({ icon, title, desc, color }) {
+function PricePack({ title, price, totalPoints, highlight, bonus, goldTheme, badge }) {
   return (
-    <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-50 hover:border-blue-600 transition-all group flex flex-col items-center text-center shadow-sm">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 shadow-lg ${color}`}>{icon}</div>
-      <h3 className="text-[12px] font-black text-slate-900 mb-1 uppercase tracking-tight leading-none">{title}</h3>
-      <p className="text-slate-400 text-[9px] font-medium leading-relaxed uppercase opacity-70 group-hover:opacity-100 px-2">{desc}</p>
-    </div>
-  );
-}
-
-function PricePack({ title, price, totalPoints, popular, bonus, goldTheme }) {
-  return (
-    <div className={`p-8 md:p-10 rounded-[3rem] border transition-all text-left relative overflow-hidden h-fit 
-      ${popular ? 'bg-[#0F172A] border-blue-600 shadow-2xl md:scale-105 z-10 text-white' : 
-        goldTheme ? 'bg-gradient-to-b from-[#020617] to-[#0F172A] border-amber-500 shadow-[0_0_50px_-12px_rgba(245,158,11,0.3)] text-white scale-100 border-2' : 
-        'bg-white border-slate-100 shadow-sm'}`}>
+    <div className={`p-8 md:p-10 rounded-[3rem] border transition-all text-left relative overflow-hidden h-fit flex flex-col
+      ${highlight ? 'bg-[#0F172A] border-slate-900 shadow-2xl md:scale-110 z-10 text-white' : 
+        goldTheme ? 'bg-white border-amber-200 shadow-xl shadow-amber-500/10' : 'bg-white border-slate-100'}`}>
       
-      {/* Logos Jitu Watermark */}
-      <div className={`absolute -top-4 -right-4 opacity-[0.04] rotate-12 pointer-events-none ${popular || goldTheme ? 'text-amber-400' : 'text-slate-900'}`}>
-        <Zap size={150} fill="currentColor" />
-      </div>
-
-      {popular && <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-5 py-1.5 rounded-b-2xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg">Best Value</div>}
-      {goldTheme && (
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-400 to-amber-600 text-[#0F172A] px-6 py-1.5 rounded-b-2xl text-[8px] font-black uppercase tracking-[0.3em] shadow-[0_4px_20px_rgba(245,158,11,0.4)] flex items-center gap-2">
-            <Crown size={10} fill="currentColor" /> Agency Elite
-        </div>
-      )}
+      {badge && <div className="absolute top-0 inset-x-0 bg-blue-600 text-white py-1.5 text-[9px] font-black uppercase tracking-[0.3em] text-center">Most Popular</div>}
       
-      <div className="relative z-10">
-        <h3 className={`text-[9px] font-black uppercase tracking-[0.4em] mb-4 ${popular ? 'text-blue-400' : goldTheme ? 'text-amber-500 animate-pulse' : 'text-slate-400'}`}>{title}</h3>
-        <div className="mb-8 flex items-baseline gap-1">
-            <span className={`text-[10px] font-bold uppercase italic ${goldTheme ? 'text-amber-500' : 'opacity-40'}`}>Rp</span>
-            <span className={`text-3xl md:text-4xl font-black tracking-tighter uppercase italic ${popular || goldTheme ? 'text-white' : 'text-slate-900'}`}>{price}</span>
+      <div className={`space-y-4 ${badge ? 'mt-4' : ''}`}>
+        <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${highlight ? 'text-blue-400' : goldTheme ? 'text-amber-600' : 'text-slate-400'}`}>{title}</h3>
+        <div className="flex items-baseline gap-1">
+            <span className={`text-sm font-bold ${highlight ? 'text-slate-500' : 'text-slate-400'}`}>Rp</span>
+            <span className={`text-4xl md:text-5xl font-black tracking-tighter italic ${highlight ? 'text-white' : 'text-slate-900'}`}>{price}</span>
         </div>
-        <div className={`py-5 rounded-[1.5rem] font-black text-3xl md:text-4xl mb-4 uppercase tracking-tighter text-center italic shadow-inner border
-          ${popular ? 'bg-blue-600 text-white border-blue-400' : 
-            goldTheme ? 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-[#0F172A] border-amber-300' : 
-            'bg-slate-50 text-blue-600 border-slate-100'}`}>
-          {totalPoints} <span className="text-[9px] not-italic opacity-40">pts</span>
+        <div className={`py-4 px-6 rounded-2xl font-black text-2xl mb-4 uppercase tracking-tighter flex items-center justify-between border
+          ${highlight ? 'bg-blue-600 border-blue-500 text-white' : goldTheme ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+          <span>{totalPoints}</span><span className="text-[9px] font-bold opacity-60 tracking-widest">POIN</span>
         </div>
-        {bonus && (
-          <div className="flex items-center justify-center gap-2 mb-8">
-              <Gift size={12} className={popular ? "text-blue-400" : "text-amber-500"} />
-              <span className={`text-[9px] font-black uppercase tracking-widest italic ${popular ? 'text-blue-400' : 'text-amber-500'}`}>{bonus}</span>
-          </div>
-        )}
-        <div className={`space-y-3 mb-10 border-t pt-8 mt-auto ${goldTheme ? 'border-amber-500/20' : 'border-slate-50'}`}>
-            <Benefit item="All AI Arsenal Unlocked" light={popular || goldTheme} gold={goldTheme} />
-            <Benefit item="Permanent Points Wallet" light={popular || goldTheme} gold={goldTheme} />
-            <Benefit item="Priority Server Queue" light={popular || goldTheme} gold={goldTheme} />
+        {bonus && <div className="flex items-center gap-2 mb-6"><Gift size={14} className={highlight ? "text-emerald-400" : "text-emerald-600"} /><span className={`text-[10px] font-black uppercase tracking-widest ${highlight ? 'text-emerald-400' : 'text-emerald-600'}`}>{bonus}</span></div>}
+        
+        <div className={`space-y-3 pt-6 border-t ${highlight ? 'border-slate-800' : 'border-slate-50'}`}>
+            <div className="flex items-center gap-3"><CheckCircle2 size={14} className={highlight ? "text-blue-500" : "text-slate-400"} /><span className={`text-[10px] font-bold uppercase tracking-wider ${highlight ? 'text-slate-300' : 'text-slate-500'}`}>Akses Seluruh Tools</span></div>
+            <div className="flex items-center gap-3"><CheckCircle2 size={14} className={highlight ? "text-blue-500" : "text-slate-400"} /><span className={`text-[10px] font-bold uppercase tracking-wider ${highlight ? 'text-slate-300' : 'text-slate-500'}`}>Masa Aktif Selamanya</span></div>
         </div>
-        <Link href="/register" className={`block w-full py-4 rounded-2xl font-black text-[9px] uppercase tracking-[0.3em] transition-all text-center active:scale-95 border
-          ${popular ? 'bg-white text-slate-900 border-transparent hover:bg-blue-500 hover:text-white shadow-xl' : 
-            goldTheme ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-[#0F172A] border-amber-300 hover:scale-[1.02] shadow-[0_10px_30px_rgba(245,158,11,0.2)]' : 
-            'bg-[#0F172A] text-white border-transparent hover:bg-blue-600'}`}>
-          AUTHORIZE AMMO
+
+        <Link href="/register" className={`mt-8 block w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] transition-all text-center active:scale-95 border hover:shadow-lg
+          ${highlight ? 'bg-white text-slate-900 border-white hover:bg-blue-50' : goldTheme ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' : 'bg-slate-900 text-white border-slate-900 hover:bg-blue-600 hover:border-blue-600'}`}>
+          BELI SEKARANG
         </Link>
       </div>
     </div>
   );
-}
-
-function Benefit({ item, light, gold }) {
-    return (
-        <div className="flex items-center gap-2.5">
-            <CheckCircle2 size={12} className={gold ? "text-amber-500" : light ? "text-blue-400" : "text-blue-600"} />
-            <span className={`text-[9px] font-bold uppercase tracking-wider ${gold ? 'text-amber-500/80' : light ? 'text-white/60' : 'text-slate-500'}`}>{item}</span>
-        </div>
-    )
 }

@@ -6,7 +6,8 @@ import {
   Smartphone, Monitor, Zap, MessageCircle, Briefcase,
   Info, AlertCircle, FileText, Quote
 } from 'lucide-react';
-import ToolHistory from '../../../../components/ToolHistory'; 
+// FIX: Absolute import yang lebih aman
+import ToolHistory from '@/components/ToolHistory'; 
 
 export default function LandingPageBuilder() {
   const [product, setProduct] = useState('');
@@ -111,17 +112,23 @@ export default function LandingPageBuilder() {
 
   const handleSelectHistory = (item) => {
     // Mapping ulang data dari Cloud ke State Input
-    setProduct(item.inputData.product); 
-    setTarget(item.inputData.target); 
-    setOffer(item.inputData.offer);
+    setProduct(item.inputData.product || ''); 
+    setTarget(item.inputData.target || ''); 
+    setOffer(item.inputData.offer || '');
     setProductKnowledge(item.inputData.productKnowledge || '');
     setTestimoniData(item.inputData.testimoniData || '');
     setStyle(item.inputData.style || 'Santai & Akrab');
-    setResult(item.resultData); // Load HTML-nya
+    
+    // Result bisa disimpan sbg string (HTML) atau object. Handle keduanya.
+    const htmlCode = item.resultData?.text || item.resultData;
+    setResult(htmlCode);
+    
+    setActiveTab('preview');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteHistory = async (id) => {
+    if(!confirm("Hapus arsip landing page ini?")) return;
     try {
       const res = await fetch(`/api/history?id=${id}`, { method: 'DELETE' });
       if (res.ok) fetchHistory();
@@ -136,19 +143,13 @@ export default function LandingPageBuilder() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const tones = [
-    { id: 'Santai & Akrab', icon: <MessageCircle className="w-4 h-4"/>, desc: 'Gaya bercerita (Storytelling)' },
-    { id: 'Profesional & Bersih', icon: <Briefcase className="w-4 h-4"/>, desc: 'Cocok untuk Jasa/Agency' },
-    { id: 'Tegas & Hard Sell', icon: <Zap className="w-4 h-4"/>, desc: 'To the point, Desakan tinggi' },
-  ];
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 font-poppins antialiased text-slate-900">
       
       {/* KOLOM KIRI: INPUT FORM */}
       <div className="lg:col-span-2 space-y-8">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 uppercase tracking-tighter">
+          <h1 className="text-2xl font-black flex items-center gap-3 uppercase tracking-tighter">
             <div className="bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-200">
                 <LayoutTemplate className="w-6 h-6 text-white" />
             </div>
@@ -160,40 +161,40 @@ export default function LandingPageBuilder() {
         </div>
 
         {/* Form Area */}
-        <div className={`bg-white p-6 md:p-8 rounded-[1.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
           <form onSubmit={handleAnalyze} className="space-y-8">
             
-            {/* Bagian Input Form tetap sama... */}
+            {/* 1. INFO DASAR */}
             <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">1. Informasi Dasar</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">1. Informasi Dasar</h3>
                 <div>
-                    <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <ShoppingBag className="w-4 h-4 text-emerald-500" /> Nama Produk
                     </label>
                     <input
                         type="text"
-                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all placeholder-slate-400"
                         placeholder="Contoh: Ebook Jago Ngonten 2026..."
                         value={product} onChange={(e) => setProduct(e.target.value)} required
                     />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                        <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <UserCircle className="w-4 h-4 text-blue-500" /> Target Market
                         </label>
                         <textarea
-                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all h-28 resize-none"
+                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all h-28 resize-none placeholder-slate-400"
                             placeholder="Siapa yang harus beli produk ini?"
                             value={target} onChange={(e) => setTarget(e.target.value)} required
                         />
                     </div>
                     <div>
-                        <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Gift className="w-4 h-4 text-rose-500" /> Penawaran / Bonus
                         </label>
                         <textarea
-                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all h-28 resize-none"
+                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all h-28 resize-none placeholder-slate-400"
                             placeholder="Diskon, Bonus, Garansi..."
                             value={offer} onChange={(e) => setOffer(e.target.value)} required
                         />
@@ -201,16 +202,27 @@ export default function LandingPageBuilder() {
                 </div>
             </div>
 
+            {/* 2. DETAIL PRODUK */}
             <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">2. Detail Produk</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2 mb-4">2. Detail Produk</h3>
                 <div>
-                    <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <FileText className="w-4 h-4 text-amber-500" /> Product Knowledge
                     </label>
                     <textarea
-                        className="w-full p-4 bg-amber-50/50 border-2 border-amber-100 rounded-2xl text-sm font-medium outline-none focus:border-amber-500 focus:bg-white transition-all h-40 resize-none"
+                        className="w-full p-4 bg-amber-50/50 border-2 border-amber-100 rounded-2xl text-sm font-medium outline-none focus:border-amber-500 focus:bg-white transition-all h-40 resize-none placeholder-slate-400"
                         placeholder="Jelaskan produk Anda sedetail mungkin disini..."
                         value={productKnowledge} onChange={(e) => setProductKnowledge(e.target.value)} required
+                    />
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <Quote className="w-4 h-4 text-blue-500" /> Testimoni Asli (Opsional)
+                    </label>
+                    <textarea
+                        className="w-full p-4 bg-blue-50/50 border-2 border-blue-100 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-28 resize-none placeholder-slate-400"
+                        placeholder="Masukkan testimoni pelanggan jika ada..."
+                        value={testimoniData} onChange={(e) => setTestimoniData(e.target.value)}
                     />
                 </div>
             </div>
@@ -218,30 +230,34 @@ export default function LandingPageBuilder() {
             {/* Tombol Action */}
             <button
               type="submit" disabled={loading || !config.isActive}
-              className={`w-full text-white py-4 px-6 rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg transition-all flex items-center justify-center gap-3 group ${loading ? 'bg-slate-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/30'}`}
+              className={`w-full text-white py-5 px-6 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-all flex items-center justify-center gap-3 group active:scale-95 ${loading ? 'bg-slate-400 cursor-wait' : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/30'}`}
             >
-              {loading ? (<> <Loader2 className="animate-spin w-5 h-5" /> {loadingMsg} </>) : (<><MousePointer2 className="w-5 h-5 group-hover:scale-110 transition-transform" /> Generate Landing Page {config.isActive && (<span className="bg-emerald-800/40 text-[10px] font-bold py-1 px-2.5 rounded-lg text-emerald-50 ml-1">-{config.creditCost} Poin</span>)}</>)}
+              {loading ? (<> <Loader2 className="animate-spin w-5 h-5" /> {loadingMsg} </>) : (<><MousePointer2 className="w-5 h-5 group-hover:scale-110 transition-transform" /> Generate Landing Page {config.isActive && (<span className="bg-emerald-800/40 text-[9px] font-bold py-1 px-2.5 rounded-lg text-emerald-50 ml-1 border border-emerald-400/30">-{config.creditCost} Poin</span>)}</>)}
             </button>
           </form>
         </div>
 
         {/* HASIL PREVIEW & CODE */}
         {result && (
-          <div className="bg-white rounded-[1.5rem] shadow-2xl shadow-emerald-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-emerald-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="bg-[#0F172A] p-4 flex justify-between items-center text-white border-b border-slate-800">
               <div className="flex gap-2">
-                <button onClick={() => setActiveTab('preview')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'preview' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><Eye size={14}/> Preview</button>
-                <button onClick={() => setActiveTab('code')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'code' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><Code size={14}/> Source Code</button>
+                <button onClick={() => setActiveTab('preview')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === 'preview' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><Eye size={14}/> Preview</button>
+                <button onClick={() => setActiveTab('code')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${activeTab === 'code' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}><Code size={14}/> Source Code</button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setViewMode('mobile')} className={`p-2 rounded-lg transition-all ${viewMode === 'mobile' ? 'text-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-white'}`}><Smartphone size={16}/></button>
+                <button onClick={() => setViewMode('desktop')} className={`p-2 rounded-lg transition-all ${viewMode === 'desktop' ? 'text-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-white'}`}><Monitor size={16}/></button>
               </div>
             </div>
             
             <div className="h-[650px] bg-slate-200 overflow-hidden relative flex justify-center py-6">
                 {activeTab === 'preview' ? (
-                    <iframe srcDoc={result} className={`bg-white shadow-2xl transition-all duration-500 ${viewMode === 'mobile' ? 'w-[375px] h-full rounded-[2rem] border-[8px] border-slate-800' : 'w-full h-full border-none'}`} title="Landing Page Preview" />
+                    <iframe srcDoc={result} className={`bg-white shadow-2xl transition-all duration-500 ${viewMode === 'mobile' ? 'w-[375px] h-full rounded-[2.5rem] border-[8px] border-slate-800' : 'w-full h-full border-none'}`} title="Landing Page Preview" />
                 ) : (
                     <div className="w-full h-full relative">
                         <textarea readOnly className="w-full h-full p-6 bg-[#1e293b] text-emerald-400 font-mono text-xs focus:outline-none resize-none" value={result} />
-                        <button onClick={handleCopyCode} className="absolute top-4 right-4 bg-white text-slate-900 px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center gap-2 hover:bg-slate-100">{copied ? <Check size={14} className="text-emerald-600"/> : <Copy size={14}/>} {copied ? "Disalin!" : "Copy Code"}</button>
+                        <button onClick={handleCopyCode} className="absolute top-4 right-4 bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 hover:bg-slate-100">{copied ? <Check size={14} className="text-emerald-600"/> : <Copy size={14}/>} {copied ? "Disalin!" : "Copy Code"}</button>
                     </div>
                 )}
             </div>
@@ -249,7 +265,7 @@ export default function LandingPageBuilder() {
         )}
       </div>
 
-      {/* KOLOM KANAN: HISTORY (Arsip Web Cloud) */}
+      {/* KOLOM KANAN: HISTORY */}
       <div className="lg:col-span-1">
         <div className="sticky top-8 h-[calc(100vh-100px)]">
             <ToolHistory 

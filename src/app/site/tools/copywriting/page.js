@@ -7,7 +7,8 @@ import {
   TrendingUp, AlertCircle, CheckCircle2, 
   Coins, Wallet, Target, Gauge, ArrowRight
 } from 'lucide-react';
-import ToolHistory from '../../../../components/ToolHistory'; 
+// FIX: Absolute Import agar aman
+import ToolHistory from '@/components/ToolHistory'; 
 
 export default function KalkulatorAdsPage() {
   const [data, setData] = useState({
@@ -24,22 +25,33 @@ export default function KalkulatorAdsPage() {
   const [config, setConfig] = useState({ creditCost: 40, isActive: true });
 
   const fetchHistory = async () => {
-    const res = await fetch('/api/history?tool=kalkulator-ads');
-    const json = await res.json();
-    if (json.data) setHistory(json.data);
+    try {
+      const res = await fetch('/api/history?tool=kalkulator-ads');
+      const json = await res.json();
+      if (json.data) setHistory(json.data);
+    } catch (err) { console.error("Gagal load history"); }
   };
 
   useEffect(() => {
-    fetch('/api/admin/tools').then(res => res.json()).then(json => {
-      const myTool = json.find(t => t.slug === 'kalkulator-ads');
-      if (myTool) setConfig(myTool);
-    });
+    const fetchConfig = async () => {
+        try {
+            const res = await fetch('/api/admin/tools');
+            const json = await res.json();
+            const myTool = json.find(t => t.slug === 'kalkulator-ads');
+            if (myTool) setConfig(myTool);
+        } catch (e) { console.log("Config Error"); }
+    };
+    fetchConfig();
     fetchHistory();
   }, []);
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!config.isActive) return;
+    
+    // Validasi input sederhana
+    if(!data.productPrice || !data.cogs || !data.adBudget) return alert("Mohon lengkapi data harga dan budget.");
+
     setLoading(true); setResult('');
 
     try {
@@ -51,31 +63,49 @@ export default function KalkulatorAdsPage() {
 
       const json = await res.json();
       if (res.status === 402) { alert("Poin tidak cukup!"); setLoading(false); return; }
+      if (!res.ok) throw new Error(json.message);
       
       setResult(json.result);
       
+      // Simpan history manual (Hapus jika API AI sudah simpan otomatis)
       await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toolType: 'kalkulator-ads',
-          title: `Forecasting - Rp ${Number(data.productPrice).toLocaleString()}`,
+          title: `Forecasting - Rp ${Number(data.productPrice).toLocaleString('id-ID')}`,
           inputData: data,
-          resultData: json.result
+          resultData: json.result // Simpan hasil string markdown
         })
       });
 
-      fetchHistory();
-    } catch (err) { alert("Gagal kalkulasi"); } finally { setLoading(false); }
+      fetchHistory(); // Refresh
+    } catch (err) { alert("Gagal kalkulasi: " + err.message); } finally { setLoading(false); }
+  };
+
+  const handleSelectHistory = (item) => {
+    if(item.inputData) setData(item.inputData);
+    
+    // Handle result (bisa string atau object)
+    const output = item.resultData?.text || item.resultData;
+    setResult(output);
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteHistory = async (id) => {
+    if(!confirm("Hapus laporan keuangan ini?")) return;
+    await fetch(`/api/history?id=${id}`, { method: 'DELETE' }); 
+    fetchHistory();
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 pb-24 pt-4 font-poppins antialiased">
+    <div className="max-w-7xl mx-auto space-y-10 pb-24 font-poppins antialiased text-slate-900">
       
       {/* HEADER */}
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <div className="bg-emerald-600 p-2.5 rounded-[1.2rem] shadow-lg shadow-emerald-200">
+        <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 uppercase tracking-tighter">
+          <div className="bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-200">
               <Calculator className="w-6 h-6 text-white" />
           </div>
           Kalkulator Profit Ads
@@ -84,9 +114,11 @@ export default function KalkulatorAdsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        
+        {/* KOLOM KIRI: FORM & HASIL */}
         <div className="lg:col-span-8 space-y-8">
           
-          <div className={`bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm ${!config.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-emerald-900/5 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
             <form onSubmit={handleAnalyze} className="space-y-10">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -99,7 +131,7 @@ export default function KalkulatorAdsPage() {
                         type="number" placeholder="Contoh: 250000"
                         value={data.productPrice}
                         onChange={(e) => setData({...data, productPrice: e.target.value})}
-                        className="w-full p-4.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm"
+                        className="w-full p-4.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm placeholder-slate-300"
                         required
                     />
                 </div>
@@ -113,7 +145,7 @@ export default function KalkulatorAdsPage() {
                         type="number" placeholder="Contoh: 100000"
                         value={data.cogs}
                         onChange={(e) => setData({...data, cogs: e.target.value})}
-                        className="w-full p-4.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm"
+                        className="w-full p-4.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm placeholder-slate-300"
                         required
                     />
                 </div>
@@ -122,52 +154,54 @@ export default function KalkulatorAdsPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                     <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Budget Iklan</label>
-                    <input type="number" value={data.adBudget} onChange={(e) => setData({...data, adBudget: e.target.value})} placeholder="Rp" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all" />
+                    <input type="number" value={data.adBudget} onChange={(e) => setData({...data, adBudget: e.target.value})} placeholder="Rp" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all placeholder-slate-300" />
                 </div>
                 <div className="space-y-2">
                     <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Target Sales</label>
-                    <input type="number" value={data.targetSales} onChange={(e) => setData({...data, targetSales: e.target.value})} placeholder="Qty" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all" />
+                    <input type="number" value={data.targetSales} onChange={(e) => setData({...data, targetSales: e.target.value})} placeholder="Qty" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all placeholder-slate-300" />
                 </div>
                 <div className="space-y-2">
                     <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ekspektasi CPR (Rp)</label>
-                    <input type="number" value={data.expectedCpr} onChange={(e) => setData({...data, expectedCpr: e.target.value})} placeholder="Rp" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all" />
+                    <input type="number" value={data.expectedCpr} onChange={(e) => setData({...data, expectedCpr: e.target.value})} placeholder="Rp" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:border-emerald-500 transition-all placeholder-slate-300" />
                 </div>
               </div>
 
               <button
                 type="submit" disabled={loading}
-                className="w-full bg-slate-900 hover:bg-emerald-600 text-white py-5 rounded-2xl font-bold uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 h-14 shadow-xl active:scale-[0.98]"
+                className="w-full bg-slate-900 hover:bg-emerald-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 h-16 shadow-xl active:scale-[0.98]"
               >
-                {loading ? <Loader2 className="animate-spin" /> : <>Analisa Kelayakan Bisnis <span className="bg-white/10 px-2 py-0.5 rounded-lg ml-2">-{config.creditCost} pts</span></>}
+                {loading ? <Loader2 className="animate-spin" /> : <> <TrendingUp size={18}/> Analisa Kelayakan Bisnis <span className="bg-white/20 px-2 py-0.5 rounded-lg ml-2 font-mono">-{config.creditCost} pts</span></>}
               </button>
             </form>
           </div>
 
           {/* HASIL ANALISA */}
           {result && (
-              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <div className="bg-slate-900 p-6 flex justify-between items-center text-white">
-                      <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+              <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white border-b border-slate-800">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
                           <PieChart className="w-4 h-4 text-emerald-400" /> Proyeksi Profitabilitas Jitu
                       </h3>
                   </div>
-                  <div className="p-8 md:p-12 prose prose-slate prose-sm max-w-none 
-                    prose-headings:text-slate-900 prose-headings:font-bold 
-                    prose-strong:text-emerald-600 prose-p:font-medium prose-p:text-slate-600 leading-relaxed">
+                  <div className="p-8 md:p-12 prose prose-sm max-w-none 
+                    prose-headings:text-slate-900 prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight
+                    prose-strong:text-emerald-600 prose-strong:font-bold
+                    prose-p:font-medium prose-p:text-slate-600 leading-relaxed
+                    prose-blockquote:border-emerald-500 prose-blockquote:bg-emerald-50/50 prose-blockquote:text-emerald-800">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                   </div>
               </div>
           )}
         </div>
 
-        {/* HISTORY */}
+        {/* KOLOM KANAN: HISTORY */}
         <div className="lg:col-span-4">
             <div className="sticky top-8">
                 <ToolHistory 
                     title="Riwayat Kalkulasi" 
                     historyData={history} 
-                    onSelect={(item) => { setData(item.inputData); setResult(item.resultData); }} 
-                    onDelete={async (id) => { await fetch(`/api/history?id=${id}`, { method: 'DELETE' }); fetchHistory(); }} 
+                    onSelect={handleSelectHistory} 
+                    onDelete={handleDeleteHistory} 
                 />
             </div>
         </div>

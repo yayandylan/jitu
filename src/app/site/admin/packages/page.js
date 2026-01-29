@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Gift, Loader2, Zap, TrendingUp, PlusCircle } from 'lucide-react';
+import { Plus, Trash2, X, Gift, Loader2, Zap, TrendingUp, PlusCircle, Package } from 'lucide-react';
 
 export default function AdminPackagesPage() {
   const [packages, setPackages] = useState([]);
@@ -15,9 +15,13 @@ export default function AdminPackagesPage() {
   const fetchPackages = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/packages', { cache: 'no-store' });
+      const res = await fetch('/api/packages', { cache: 'no-store' });
       const data = await res.json();
-      if (data.success) setPackages(data.packages);
+      if (data.success) {
+        // Urutkan dari harga termurah
+        const sorted = data.packages.sort((a, b) => a.price - b.price);
+        setPackages(sorted);
+      }
     } catch (err) { 
       console.error("Gagal tarik data"); 
     } finally {
@@ -32,10 +36,18 @@ export default function AdminPackagesPage() {
     setIsSubmitting(true);
     
     try {
-      const res = await fetch('/api/admin/packages', {
+      // Pastikan konversi ke number
+      const payload = {
+        ...formData,
+        basePoints: Number(formData.basePoints),
+        bonusPoints: Number(formData.bonusPoints),
+        price: Number(formData.price)
+      };
+
+      const res = await fetch('/api/packages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       
       const result = await res.json();
@@ -44,6 +56,7 @@ export default function AdminPackagesPage() {
         setIsModalOpen(false);
         setFormData({ name: '', basePoints: '', bonusPoints: '', price: '', icon: 'Zap', color: 'bg-blue-50 text-blue-600' });
         await fetchPackages();
+        alert("Paket berhasil diterbitkan!");
       } else {
         alert("Gagal menyimpan: " + result.message);
       }
@@ -57,7 +70,7 @@ export default function AdminPackagesPage() {
   const deletePackage = async (id) => {
     if(!confirm("Hapus paket promo ini secara permanen?")) return;
     try {
-      const res = await fetch(`/api/admin/packages/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/packages?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if(data.success) fetchPackages();
       else alert(data.message);
@@ -67,7 +80,7 @@ export default function AdminPackagesPage() {
   };
 
   return (
-    <div className="space-y-10 font-poppins antialiased tracking-tighter">
+    <div className="max-w-7xl mx-auto space-y-10 font-poppins antialiased tracking-tighter pb-20 mt-8 px-4">
       {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
         <div>
@@ -91,13 +104,14 @@ export default function AdminPackagesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {packages.length === 0 ? (
-            <div className="col-span-full py-24 text-center bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100">
-               <Gift size={48} className="mx-auto text-slate-200 mb-4" />
+            <div className="col-span-full py-24 text-center bg-white rounded-[3.5rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center">
+               <Package size={48} className="text-slate-200 mb-4" />
                <p className="text-slate-400 font-bold uppercase text-[11px] tracking-[0.3em]">Belum ada paket promo yang aktif.</p>
+               <button onClick={() => setIsModalOpen(true)} className="mt-4 text-blue-600 text-xs font-bold hover:underline">Buat Paket Pertama</button>
             </div>
           ) : (
             packages.map((pkg) => (
-              <div key={pkg._id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all relative group overflow-hidden">
+              <div key={pkg._id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all relative group overflow-hidden hover:-translate-y-1 duration-300">
                 <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:scale-125 transition-transform duration-500">
                   <Zap size={100} fill="currentColor" />
                 </div>
@@ -110,6 +124,7 @@ export default function AdminPackagesPage() {
                     <button 
                       onClick={() => deletePackage(pkg._id)} 
                       className="w-10 h-10 flex items-center justify-center text-slate-300 hover:bg-rose-50 hover:text-rose-500 rounded-xl transition-all"
+                      title="Hapus Paket"
                     >
                       <Trash2 size={18}/>
                     </button>
@@ -128,7 +143,7 @@ export default function AdminPackagesPage() {
                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium italic">
                         <span>{pkg.basePoints.toLocaleString()} Utama</span>
                         {pkg.bonusPoints > 0 && (
-                          <span className="text-emerald-500">+ {pkg.bonusPoints.toLocaleString()} Bonus</span>
+                          <span className="text-emerald-500 font-bold">+ {pkg.bonusPoints.toLocaleString()} Bonus</span>
                         )}
                      </div>
                   </div>
@@ -144,9 +159,12 @@ export default function AdminPackagesPage() {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">
           <form 
             onSubmit={handleSubmit} 
-            className="bg-white w-full max-w-md rounded-[3.5rem] p-10 space-y-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300"
+            className="bg-white w-full max-w-md rounded-[3.5rem] p-10 space-y-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300 relative overflow-hidden"
           >
-            <div className="flex justify-between items-center">
+            {/* Background Decor */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+
+            <div className="flex justify-between items-center relative z-10">
               <div className="space-y-1">
                 <h2 className="text-xl font-black uppercase italic leading-none">Konfigurasi <span className="text-blue-600">Paket</span></h2>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Detail penawaran amunisi baru</p>
@@ -156,7 +174,7 @@ export default function AdminPackagesPage() {
               </button>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-5 relative z-10">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Identitas Paket</label>
                 <input 
@@ -175,7 +193,7 @@ export default function AdminPackagesPage() {
                     type="number" required 
                     value={formData.basePoints} 
                     onChange={(e) => setFormData({...formData, basePoints: e.target.value})} 
-                    className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all" 
+                    className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all placeholder:text-slate-300" 
                     placeholder="15000" 
                   />
                 </div>
@@ -185,7 +203,7 @@ export default function AdminPackagesPage() {
                     type="number" 
                     value={formData.bonusPoints} 
                     onChange={(e) => setFormData({...formData, bonusPoints: e.target.value})} 
-                    className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all" 
+                    className="w-full p-5 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all placeholder:text-slate-300" 
                     placeholder="5000" 
                   />
                 </div>
@@ -199,7 +217,7 @@ export default function AdminPackagesPage() {
                     type="number" required 
                     value={formData.price} 
                     onChange={(e) => setFormData({...formData, price: e.target.value})} 
-                    className="w-full p-5 pl-14 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all" 
+                    className="w-full p-5 pl-14 bg-slate-50 border-2 border-transparent rounded-[2rem] font-bold text-sm outline-none focus:border-blue-500/20 focus:bg-white transition-all placeholder:text-slate-300" 
                     placeholder="250000" 
                   />
                 </div>
@@ -209,7 +227,7 @@ export default function AdminPackagesPage() {
             <button 
               type="submit" 
               disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-500/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95"
+              className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] shadow-2xl shadow-blue-500/30 hover:bg-slate-900 transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 relative z-10"
             >
               {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : "PUBLIKASIKAN PAKET"}
             </button>

@@ -1,18 +1,49 @@
 "use client";
 
-import { useState } from 'react';
-import { Image as ImageIcon, Loader2, Download, Sparkles, Wallet, Monitor, BookOpen, AppWindow, Grid } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  Image as ImageIcon, Loader2, Download, Sparkles, 
+  Wallet, Monitor, BookOpen, AppWindow, Grid, 
+  Maximize2, History 
+} from 'lucide-react';
+// FIX: Absolute import
+import ToolHistory from '@/components/ToolHistory'; 
 
 export default function GenerateImagePage() {
   const [prompt, setPrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('square');
-  const [productType, setProductType] = useState('ebook'); // Default Ebook
+  const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [productType, setProductType] = useState('ebook'); 
+  
   const [loading, setLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  const [history, setHistory] = useState([]);
+  const [config, setConfig] = useState({ creditCost: 100, isActive: true });
+
+  // 1. FETCH HISTORY DARI DB
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch('/api/history?tool=generate-image');
+      const data = await res.json();
+      if (data.data) setHistory(data.data);
+    } catch (err) { console.error("Gagal load history"); }
+  };
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/admin/tools');
+        const data = await res.json();
+        const myTool = data.find(t => t.slug === 'generate-image');
+        if (myTool) setConfig(myTool);
+      } catch (e) { console.log("Config error"); }
+    };
+    fetchConfig();
+    fetchHistory();
+  }, []);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!prompt) return;
+    if (!prompt || !config.isActive) return;
 
     setLoading(true);
     setImageUrl('');
@@ -21,7 +52,7 @@ export default function GenerateImagePage() {
       const res = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, aspectRatio, productType }), // Kirim Tipe Produk
+        body: JSON.stringify({ prompt, aspectRatio, productType }),
       });
 
       const data = await res.json();
@@ -34,7 +65,21 @@ export default function GenerateImagePage() {
 
       if (!res.ok) throw new Error(data.message);
       
-      setImageUrl(data.result);
+      setImageUrl(data.result); // URL Gambar dari OpenAI/Cloudinary
+
+      // 2. SIMPAN HISTORY
+      await fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolType: 'generate-image',
+          title: prompt.substring(0, 30),
+          inputData: { prompt, aspectRatio, productType },
+          resultData: { imageUrl: data.result } // Simpan URL gambar
+        })
+      });
+
+      fetchHistory();
 
     } catch (err) {
       alert("Gagal: " + err.message);
@@ -43,49 +88,69 @@ export default function GenerateImagePage() {
     }
   };
 
+  const handleSelectHistory = (item) => {
+    setPrompt(item.inputData.prompt);
+    setAspectRatio(item.inputData.aspectRatio);
+    setProductType(item.inputData.productType);
+    // Handle resultData format
+    const url = item.resultData?.imageUrl || item.resultData;
+    setImageUrl(url);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteHistory = async (id) => {
+    if(!confirm("Hapus gambar ini?")) return;
+    await fetch(`/api/history?id=${id}`, { method: 'DELETE' }); 
+    fetchHistory();
+  };
+
   // Pilihan Jenis Produk
   const productTypes = [
-    { id: 'ebook', label: 'E-Book / PDF', icon: <BookOpen className="w-4 h-4"/>, desc: 'Tampilan buku 3D / Tablet' },
-    { id: 'course', label: 'Kursus Online', icon: <Monitor className="w-4 h-4"/>, desc: 'Tampilan Laptop & Video' },
-    { id: 'software', label: 'Software / SaaS', icon: <AppWindow className="w-4 h-4"/>, desc: 'Dashboard UI Futuristik' },
-    { id: 'template', label: 'Aset Desain', icon: <Grid className="w-4 h-4"/>, desc: 'Grid Layout Estetik' },
+    { id: 'ebook', label: 'E-Book 3D', icon: <BookOpen className="w-4 h-4"/>, desc: 'Cover buku hardbox realistis' },
+    { id: 'course', label: 'E-Course', icon: <Monitor className="w-4 h-4"/>, desc: 'Tampilan layar laptop & modul' },
+    { id: 'software', label: 'SaaS / App', icon: <AppWindow className="w-4 h-4"/>, desc: 'Dashboard UI Isometric' },
+    { id: 'mockup', label: 'Product Box', icon: <Grid className="w-4 h-4"/>, desc: 'Packaging Box Premium' },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto pb-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-          <ImageIcon className="w-8 h-8 text-purple-600" />
-          Generate Gambar Produk Digital
-        </h1>
-        <p className="text-gray-500 mt-2">
-          Buat mockup 3D realistis untuk E-Book, Kursus, atau Software Anda dalam hitungan detik.
-        </p>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 font-poppins antialiased text-slate-900">
+      
+      {/* KOLOM KIRI: INPUT & PREVIEW */}
+      <div className="lg:col-span-2 space-y-8">
         
-        {/* KOLOM KIRI: INPUT */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        {/* HEADER */}
+        <div>
+            <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 uppercase tracking-tighter">
+                <div className="bg-purple-600 p-2 rounded-xl shadow-lg shadow-purple-200">
+                    <ImageIcon className="w-6 h-6 text-white" />
+                </div>
+                AI Product Mockup
+            </h1>
+            <p className="text-sm font-medium text-slate-500 mt-2">
+                Generate gambar produk digital kualitas studio tanpa perlu render manual.
+            </p>
+        </div>
+
+        {/* INPUT FORM */}
+        <div className={`bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-purple-900/5 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
             <form onSubmit={handleGenerate} className="space-y-6">
               
-              {/* 1. Pilih Jenis Produk */}
+              {/* 1. Jenis Produk */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-3">Jenis Produk Digital</label>
-                <div className="grid grid-cols-1 gap-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Jenis Aset</label>
+                <div className="grid grid-cols-2 gap-3">
                   {productTypes.map((type) => (
                     <div 
                       key={type.id}
                       onClick={() => setProductType(type.id)}
-                      className={`p-3 rounded-lg border cursor-pointer flex items-center gap-3 transition-all ${productType === type.id ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500' : 'hover:bg-gray-50 border-gray-200'}`}
+                      className={`p-3 rounded-2xl border cursor-pointer flex items-center gap-3 transition-all ${productType === type.id ? 'bg-purple-50 border-purple-500 ring-1 ring-purple-500' : 'hover:bg-slate-50 border-slate-200'}`}
                     >
-                      <div className={`p-2 rounded-full ${productType === type.id ? 'bg-purple-200 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <div className={`p-2.5 rounded-xl ${productType === type.id ? 'bg-purple-200 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
                         {type.icon}
                       </div>
                       <div>
-                        <p className={`text-sm font-bold ${productType === type.id ? 'text-purple-900' : 'text-gray-700'}`}>{type.label}</p>
-                        <p className="text-xs text-gray-500">{type.desc}</p>
+                        <p className={`text-xs font-bold ${productType === type.id ? 'text-purple-900' : 'text-slate-700'}`}>{type.label}</p>
+                        <p className="text-[9px] text-slate-400">{type.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -94,13 +159,12 @@ export default function GenerateImagePage() {
 
               {/* 2. Prompt */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Tentang Produk Anda</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Deskripsi Visual</label>
                 <textarea
-                  className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 outline-none h-28 text-sm"
+                  className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-purple-500 focus:bg-white transition-all h-28 resize-none placeholder-slate-400"
                   placeholder={
-                    productType === 'ebook' ? "Contoh: Buku panduan diet keto, cover warna hijau segar, ada gambar alpukat." : 
-                    productType === 'course' ? "Contoh: Kelas coding website, nuansa teknologi biru gelap, ada kode program di layar." :
-                    "Deskripsikan produk Anda..."
+                    productType === 'ebook' ? "Buku tentang diet keto, cover warna hijau segar, ada gambar alpukat, lighting studio..." : 
+                    "Deskripsikan warna, suasana, dan elemen yang ingin ditampilkan..."
                   }
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
@@ -110,76 +174,83 @@ export default function GenerateImagePage() {
 
               {/* 3. Aspect Ratio */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Ukuran Gambar</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setAspectRatio('square')} className={`p-2 border rounded-lg text-xs font-medium ${aspectRatio === 'square' ? 'bg-purple-100 border-purple-500 text-purple-700' : 'hover:bg-gray-50'}`}>Square (1:1)</button>
-                  <button type="button" onClick={() => setAspectRatio('portrait')} className={`p-2 border rounded-lg text-xs font-medium ${aspectRatio === 'portrait' ? 'bg-purple-100 border-purple-500 text-purple-700' : 'hover:bg-gray-50'}`}>Story (9:16)</button>
-                  <button type="button" onClick={() => setAspectRatio('landscape')} className={`p-2 border rounded-lg text-xs font-medium ${aspectRatio === 'landscape' ? 'bg-purple-100 border-purple-500 text-purple-700' : 'hover:bg-gray-50'}`}>Web (16:9)</button>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">Rasio Gambar</label>
+                <div className="flex gap-2">
+                  {['1:1', '16:9', '9:16'].map((ratio) => (
+                      <button 
+                        key={ratio}
+                        type="button" 
+                        onClick={() => setAspectRatio(ratio)} 
+                        className={`flex-1 py-2.5 border rounded-xl text-xs font-bold transition-all ${aspectRatio === ratio ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {ratio}
+                      </button>
+                  ))}
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20"
+                className="w-full bg-slate-900 hover:bg-purple-600 text-white font-black uppercase tracking-[0.2em] text-[11px] py-5 px-6 rounded-2xl transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95"
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Sedang Merender 3D...
+                    RENDERING 3D ASSETS...
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    Generate Mockup
-                    <span className="bg-purple-800 text-xs py-0.5 px-2 rounded-full text-purple-100 ml-1 flex items-center gap-1">
-                      <Wallet className="w-3 h-3"/> -100
+                    GENERATE MOCKUP
+                    <span className="bg-white/20 text-[9px] py-1 px-2 rounded-lg ml-1 font-mono">
+                      -{config.creditCost} pts
                     </span>
                   </>
                 )}
               </button>
             </form>
-          </div>
         </div>
 
-        {/* KOLOM KANAN: HASIL GAMBAR */}
-        <div className="lg:col-span-2">
-          <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200 min-h-[600px] flex items-center justify-center bg-checkered">
-            {loading ? (
-              <div className="text-center">
-                <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900">AI Sedang Membuat Mockup...</h3>
-                <p className="text-gray-500 text-sm">Menambahkan efek lighting studio & 3D render.</p>
-              </div>
-            ) : imageUrl ? (
-              <div className="relative group w-full h-full flex flex-col items-center">
-                <img 
-                  src={imageUrl} 
-                  alt="Hasil Mockup AI" 
-                  className="rounded-lg shadow-2xl max-h-[600px] object-contain"
-                />
-                
-                <div className="mt-6 flex gap-4">
-                  <a href={imageUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-full font-bold hover:scale-105 transition-transform">
-                    <ImageIcon className="w-5 h-5" />
-                    Lihat Full HD
-                  </a>
-                  <button onClick={() => window.open(imageUrl, '_blank')} className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-full font-bold hover:bg-purple-700 transition-colors shadow-lg">
-                    <Download className="w-5 h-5" />
-                    Download
-                  </button>
+        {/* HASIL GAMBAR */}
+        {imageUrl && (
+            <div className="bg-white p-4 rounded-[2.5rem] shadow-2xl border border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <div className="bg-slate-100 rounded-[2rem] overflow-hidden relative group">
+                    <img 
+                        src={imageUrl} 
+                        alt="Hasil Mockup AI" 
+                        className="w-full h-auto object-cover shadow-inner"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-4 backdrop-blur-sm">
+                        <a href={imageUrl} target="_blank" rel="noreferrer" className="p-3 bg-white rounded-full text-slate-900 hover:scale-110 transition-transform shadow-lg">
+                            <Maximize2 size={20}/>
+                        </a>
+                        <button onClick={() => window.open(imageUrl, '_blank')} className="p-3 bg-purple-600 rounded-full text-white hover:bg-purple-500 hover:scale-110 transition-all shadow-lg shadow-purple-500/50">
+                            <Download size={20}/>
+                        </button>
+                    </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-400">
-                <Monitor className="w-20 h-20 mx-auto mb-4 opacity-20" />
-                <p>Pilih jenis produk di kiri untuk memulai.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
+                <div className="mt-4 px-2 flex justify-between items-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">
+                    <span>Generated by DALL-E 3</span>
+                    <span>High Quality Render</span>
+                </div>
+            </div>
+        )}
       </div>
+
+      {/* KOLOM KANAN: HISTORY */}
+      <div className="lg:col-span-1">
+        <div className="sticky top-8">
+            <ToolHistory 
+                title="Galeri Mockup" 
+                icon={<History size={16}/>}
+                historyData={history} 
+                onSelect={handleSelectHistory} 
+                onDelete={handleDeleteHistory} 
+            />
+        </div>
+      </div>
+
     </div>
   );
 }

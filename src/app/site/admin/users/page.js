@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { 
     Search, Trash2, Edit, Coins, 
-    User, History, ArrowUpRight, ArrowDownLeft, Loader2, X, Star, Users, Save, ShieldAlert, Zap
+    History, ArrowUpRight, ArrowDownLeft, Loader2, X, Star, Zap
 } from 'lucide-react';
 
 export default function ManageUsersPage() {
@@ -13,7 +13,7 @@ export default function ManageUsersPage() {
   
   // State Modals
   const [selectedUser, setSelectedUser] = useState(null);
-  const [modalType, setModalType] = useState(null); 
+  const [modalType, setModalType] = useState(null); // 'edit' | 'credit' | 'history'
   
   // State Forms
   const [creditForm, setCreditForm] = useState({ amount: 0, type: 'add' });
@@ -21,11 +21,13 @@ export default function ManageUsersPage() {
   const [userHistory, setUserHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // 1. FETCH USERS
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
+      // Handle berbagai format return API (array langsung atau object.users)
       const userData = Array.isArray(data.users) ? data.users : (Array.isArray(data) ? data : []);
       setUsers(userData);
     } catch (error) {
@@ -37,9 +39,13 @@ export default function ManageUsersPage() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  // 2. SEARCH & FILTER LOGIC (SAFE MODE)
   const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Gunakan (u.name || '') untuk mencegah crash jika data null
+    const nameMatch = (u.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const emailMatch = (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = nameMatch || emailMatch;
+
     if (activeTab === 'premium') return matchesSearch && u.isPremium === true;
     if (activeTab === 'free') return matchesSearch && u.isPremium !== true;
     return matchesSearch;
@@ -52,14 +58,17 @@ export default function ManageUsersPage() {
   };
 
   // --- ACTIONS ---
+
+  // HAPUS USER
   const handleDeleteUser = async (id, name) => {
-    if (!confirm(`⚠️ Hapus permanen member "${name}"? Seluruh history dan poin akan hilang.`)) return;
+    if (!confirm(`⚠️ PERINGATAN KERAS!\n\nHapus permanen member "${name}"?\nSeluruh history chat, transaksi, dan poin akan HILANG dan tidak bisa dikembalikan.`)) return;
     try {
         const res = await fetch(`/api/admin/users?id=${id}`, { method: 'DELETE' });
         if(res.ok) { alert("User berhasil dihapus"); fetchUsers(); }
     } catch(err) { alert("Gagal hapus user"); }
   };
 
+  // EDIT USER
   const openEditModal = (user) => { 
     setSelectedUser(user); 
     setEditForm({ name: user.name, role: user.role || 'user', isPremium: user.isPremium || false }); 
@@ -82,7 +91,9 @@ export default function ManageUsersPage() {
     } catch(err) { alert("Gagal update user"); }
   };
 
+  // CREDIT ADJUSTMENT
   const openCreditModal = (user) => { setSelectedUser(user); setCreditForm({ amount: 0, type: 'add' }); setModalType('credit'); };
+  
   const handleUpdateCredit = async () => {
     const amount = creditForm.type === 'add' ? Number(creditForm.amount) : -Number(creditForm.amount);
     try {
@@ -95,19 +106,22 @@ export default function ManageUsersPage() {
     } catch(err) { console.error(err); }
   };
 
+  // HISTORY LOG
   const openHistoryModal = async (user) => {
     setSelectedUser(user); 
     setModalType('history'); 
     setLoadingHistory(true);
+    setUserHistory([]); // Reset dulu biar ga muncul history user sebelumnya
     try {
         const res = await fetch(`/api/admin/users/history?userId=${user._id}`);
         const data = await res.json();
-        setUserHistory(data || []);
+        // Pastikan format array agar map tidak error
+        setUserHistory(Array.isArray(data) ? data : (data.history || []));
     } catch (err) { alert("Gagal ambil history"); } finally { setLoadingHistory(false); }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 px-4 mt-8 antialiased">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20 px-4 mt-8 antialiased font-poppins text-slate-900">
       
       {/* 1. HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -156,6 +170,8 @@ export default function ManageUsersPage() {
                 <tbody className="divide-y divide-slate-50 text-[13px]">
                     {loading ? (
                         <tr><td colSpan="4" className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-blue-600" size={32}/></td></tr>
+                    ) : filteredUsers.length === 0 ? (
+                        <tr><td colSpan="4" className="p-20 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Tidak ada user ditemukan</td></tr>
                     ) : filteredUsers.map((user) => (
                         <tr key={user._id} className="hover:bg-slate-50/50 transition-all group">
                             <td className="px-8 py-5">
@@ -185,11 +201,11 @@ export default function ManageUsersPage() {
                                 </span>
                             </td>
                             <td className="px-8 py-5 text-right">
-                                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => openCreditModal(user)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"><Coins size={16} /></button>
-                                    <button onClick={() => openEditModal(user)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit size={16} /></button>
-                                    <button onClick={() => openHistoryModal(user)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"><History size={16} /></button>
-                                    <button onClick={() => handleDeleteUser(user._id, user.name)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={16} /></button>
+                                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity justify-end">
+                                    <button onClick={() => openCreditModal(user)} title="Atur Poin" className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"><Coins size={16} /></button>
+                                    <button onClick={() => openEditModal(user)} title="Edit Member" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Edit size={16} /></button>
+                                    <button onClick={() => openHistoryModal(user)} title="Lihat History" className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"><History size={16} /></button>
+                                    <button onClick={() => handleDeleteUser(user._id, user.name)} title="Hapus User" className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={16} /></button>
                                 </div>
                             </td>
                         </tr>
@@ -231,7 +247,7 @@ export default function ManageUsersPage() {
         </div>
       )}
 
-      {/* --- MODAL HISTORY (FIXED MINUS LOGIC) --- */}
+      {/* --- MODAL HISTORY --- */}
       {modalType === 'history' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
             <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-3xl flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">

@@ -3,7 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import { useState, useEffect } from 'react';
 import remarkGfm from 'remark-gfm'; 
 import { Target, Loader2, ShieldCheck, Microscope, Users, Swords } from 'lucide-react';
-import ToolHistory from '../../../../components/ToolHistory'; 
+// FIX: Gunakan Absolute Import agar lebih rapi & aman
+import ToolHistory from '@/components/ToolHistory'; 
 
 export default function ValidasiMarketPage() {
   const [idea, setIdea] = useState('');
@@ -59,6 +60,8 @@ export default function ValidasiMarketPage() {
       if (data.remainingCredits !== undefined) setUserCredits(data.remainingCredits);
 
       // 2. SIMPAN HASIL KE DATABASE
+      // Jika API AI Bapak sudah menyimpan history otomatis, hapus bagian fetch POST ini.
+      // Jika belum, biarkan kode ini berjalan agar history tersimpan.
       await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,24 +69,29 @@ export default function ValidasiMarketPage() {
           toolType: 'validasi-market',
           title: idea.substring(0, 40),
           inputData: { idea },
-          resultData: data.result 
+          resultData: data.result // Simpan hasil AI-nya (bisa text atau object)
         })
       });
 
-      // Refresh list riwayat
+      // Refresh list riwayat agar user langsung melihat update-nya
       fetchHistory();
 
     } catch (err) { alert("Gagal: " + err.message); } finally { setLoading(false); }
   };
 
   const handleSelectHistory = (item) => {
-    // Sesuaikan dengan struktur MongoDB (inputData & resultData)
-    setIdea(item.inputData.idea); 
-    setResult(item.resultData);
+    // Restore Input
+    if (item.inputData?.idea) setIdea(item.inputData.idea);
+    
+    // Restore Result (Handle object {text: ...} atau string)
+    const output = item.resultData?.text || item.resultData;
+    setResult(output);
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteHistory = async (id) => {
+    if(!confirm("Hapus riwayat validasi ini?")) return;
     try {
       const res = await fetch(`/api/history?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -95,12 +103,12 @@ export default function ValidasiMarketPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 font-poppins antialiased text-slate-900">
       
       {/* KOLOM KIRI: WORKSPACE */}
       <div className="lg:col-span-2 space-y-8">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 uppercase tracking-tighter">
+          <h1 className="text-2xl font-black flex items-center gap-3 uppercase tracking-tighter">
             <div className="bg-rose-600 p-2 rounded-xl shadow-lg shadow-rose-200">
                 <Target className="w-6 h-6 text-white" />
             </div>
@@ -112,14 +120,14 @@ export default function ValidasiMarketPage() {
         </div>
 
         {/* INPUT FORM */}
-        <div className={`bg-white p-6 md:p-8 rounded-[1.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
           <form onSubmit={handleAnalyze} className="space-y-6">
             <div>
-                <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
                     <Microscope className="w-4 h-4 text-rose-500" /> Detail Produk / Ide Anda
                 </label>
                 <textarea
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-rose-500 focus:bg-white transition-all h-40 resize-none"
+                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-rose-500 focus:bg-white transition-all h-40 resize-none placeholder-slate-400"
                     placeholder="Contoh: Saya ingin menjual keripik pisang coklat lumer dengan branding premium khusus untuk oleh-oleh Gen Z..."
                     value={idea} onChange={(e) => setIdea(e.target.value)} required
                 />
@@ -127,7 +135,7 @@ export default function ValidasiMarketPage() {
             
             <button
               type="submit" disabled={loading || !config.isActive}
-              className={`w-full text-white py-4 px-6 rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg transition-all flex items-center justify-center gap-3 group ${loading ? 'bg-slate-400' : 'bg-rose-600 hover:bg-rose-700 hover:shadow-rose-500/30'}`}
+              className={`w-full text-white py-5 px-6 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg transition-all flex items-center justify-center gap-3 group active:scale-95 ${loading ? 'bg-slate-400' : 'bg-rose-600 hover:bg-rose-700 hover:shadow-rose-500/30'}`}
             >
               {loading ? (
                 <> <Loader2 className="animate-spin w-5 h-5" /> Membedah Pasar... </>
@@ -136,7 +144,7 @@ export default function ValidasiMarketPage() {
                     <ShieldCheck className="w-5 h-5 group-hover:scale-110 transition-transform" /> 
                     Validasi Sekarang
                     {config.isActive && (
-                      <span className="bg-rose-800/40 text-[10px] font-bold py-1 px-2.5 rounded-lg text-rose-50 ml-1 border border-rose-400/30">
+                      <span className="bg-rose-800/40 text-[9px] font-bold py-1 px-2.5 rounded-lg text-rose-50 ml-1 border border-rose-400/30">
                         -{config.creditCost} Poin
                       </span>
                     )}
@@ -148,27 +156,27 @@ export default function ValidasiMarketPage() {
 
         {/* HASIL VALIDASI */}
         {result && (
-          <div className="bg-white rounded-[1.5rem] shadow-2xl shadow-rose-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-rose-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white">
-              <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+              <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                 <div className="bg-rose-500/20 p-1.5 rounded-lg"><Swords className="w-4 h-4 text-rose-400" /></div>
                 Laporan Intelijen Pasar
               </h3>
             </div>
             
-            <div className="p-6 md:p-10 prose prose-sm max-w-none">
+            <div className="p-8 md:p-12 prose prose-sm max-w-none">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  h1: ({node, ...props}) => <h1 className="text-2xl font-black text-slate-900 border-b-4 border-rose-500 pb-2 mb-6" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-lg font-bold text-slate-900 mt-8 mb-4 border-l-4 border-rose-600 pl-3" {...props} />,
+                  h1: ({node, ...props}) => <h1 className="text-2xl font-black text-slate-900 border-b-4 border-rose-500 pb-2 mb-6 uppercase tracking-tighter" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold text-slate-900 mt-8 mb-4 border-l-4 border-rose-600 pl-4 uppercase tracking-tight" {...props} />,
                   blockquote: ({node, ...props}) => (
-                    <div className="bg-slate-900 text-white p-6 rounded-2xl border-l-8 border-rose-500 my-6 shadow-lg" {...props} />
+                    <div className="bg-slate-900 text-white p-6 rounded-2xl border-l-8 border-rose-500 my-6 shadow-lg relative overflow-hidden italic" {...props} />
                   ),
                   li: ({node, ...props}) => (
-                    <li className="bg-slate-50 p-3 rounded-xl flex gap-2 items-start mb-2 border border-slate-100" {...props} />
+                    <li className="bg-slate-50 p-4 rounded-xl flex gap-2 items-start mb-2 border border-slate-100 font-medium text-slate-600" {...props} />
                   ),
-                  strong: ({node, ...props}) => <strong className="text-rose-600 font-bold" {...props} />
+                  strong: ({node, ...props}) => <strong className="text-rose-600 font-black" {...props} />
                 }}
               >
                 {result}
@@ -178,9 +186,9 @@ export default function ValidasiMarketPage() {
         )}
       </div>
 
-      {/* KOLOM KANAN: HISTORY (Database Sync) */}
+      {/* KOLOM KANAN: HISTORY */}
       <div className="lg:col-span-1">
-        <div className="sticky top-8 h-[calc(100vh-100px)]">
+        <div className="sticky top-8">
             <ToolHistory 
                 title="Riwayat Validasi" 
                 historyData={history} 

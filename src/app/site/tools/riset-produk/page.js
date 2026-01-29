@@ -3,14 +3,14 @@ import ReactMarkdown from 'react-markdown';
 import { useState, useEffect } from 'react';
 import remarkGfm from 'remark-gfm'; 
 import { Search, Loader2, TrendingUp, BrainCircuit, Sparkles, Trophy, Target } from 'lucide-react';
-import ToolHistory from '../../../../components/ToolHistory'; 
+// FIX: Gunakan absolute import yang lebih rapi
+import ToolHistory from '@/components/ToolHistory'; 
 
 export default function RisetProdukPage() {
   const [idea, setIdea] = useState('');
   const [skills, setSkills] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
-  const [userCredits, setUserCredits] = useState(null);
   const [history, setHistory] = useState([]);
   const [config, setConfig] = useState({ creditCost: 50, isActive: true });
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -58,36 +58,46 @@ export default function RisetProdukPage() {
       if (!res.ok) throw new Error(data.message);
       
       setResult(data.result);
-      if (data.remainingCredits !== undefined) setUserCredits(data.remainingCredits);
 
       // 2. SIMPAN HASIL KE DATABASE (Bukan LocalStorage)
+      // Karena backend AI biasanya sudah menyimpan history secara otomatis (jika kita setting di sana),
+      // kita perlu cek apakah API AI sudah melakukan saving.
+      // Jika API AI Bapak SUDAH menyimpan history otomatis, bagian fetch POST ini bisa DIHAPUS agar tidak double.
+      // Namun, jika API AI Bapak murni hanya return text, maka kode di bawah ini WAJIB ada.
+      
       await fetch('/api/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toolType: 'riset-produk',
-          title: idea.substring(0, 40),
+          title: idea.substring(0, 40), // Judul history diambil dari ide awal
           inputData: { idea, skills },
-          resultData: data.result // Simpan hasil AI-nya
+          resultData: data.result 
         })
       });
 
-      // Refresh riwayat agar data terbaru muncul di samping
+      // Refresh riwayat agar data terbaru muncul di sidebar
       fetchHistory();
 
     } catch (err) { alert("Gagal: " + err.message); } finally { setLoading(false); }
   };
 
   const handleSelectHistory = (item) => {
-    // Sesuaikan dengan struktur model History.js kita
-    setIdea(item.inputData.idea); 
-    setSkills(item.inputData.skills); 
-    setResult(item.resultData);
+    // Restore data dari history yang dipilih
+    if (item.inputData) {
+        setIdea(item.inputData.idea || ''); 
+        setSkills(item.inputData.skills || '');
+    }
+    // Handle resultData (bisa object {text: ...} atau string langsung)
+    const output = item.resultData?.text || item.resultData;
+    setResult(output);
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // 3. FUNGSI HAPUS DARI DATABASE
   const handleDeleteHistory = async (id) => {
+    if(!confirm("Hapus riwayat riset ini?")) return;
     try {
       const res = await fetch(`/api/history?id=${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -99,13 +109,14 @@ export default function RisetProdukPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 font-poppins antialiased text-slate-900">
+      
+      {/* AREA UTAMA (KIRI) */}
       <div className="lg:col-span-2 space-y-8">
-        {/* ... (Bagian Header & Form Input Sama seperti sebelumnya) ... */}
-        {/* Pastikan form Bapak tetap ada di sini */}
-
+        
+        {/* HEADER */}
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3 uppercase tracking-tighter">
+          <h1 className="text-2xl font-black flex items-center gap-3 uppercase tracking-tighter">
             <div className="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
                 <Search className="w-6 h-6 text-white" />
             </div>
@@ -116,39 +127,40 @@ export default function RisetProdukPage() {
           </p>
         </div>
 
-        <div className={`bg-white p-6 md:p-8 rounded-[1.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* FORM INPUT */}
+        <div className={`bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-all ${!config.isActive ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
           <form onSubmit={handleAnalyze} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <BrainCircuit className="w-4 h-4 text-blue-500" /> Skill / Aset
-                </label>
-                <textarea
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-32 resize-none"
-                    placeholder="Contoh: Jago nulis, punya 1000 email list..."
-                    value={skills} onChange={(e) => setSkills(e.target.value)} required
-                />
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <BrainCircuit className="w-4 h-4 text-blue-500" /> Skill / Aset
+                    </label>
+                    <textarea
+                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-32 resize-none placeholder-slate-400"
+                        placeholder="Contoh: Jago desain Canva, punya 1000 followers IG..."
+                        value={skills} onChange={(e) => setSkills(e.target.value)} required
+                    />
                 </div>
                 <div>
-                <label className="text-[11px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" /> Ide Awal
-                </label>
-                <textarea
-                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-32 resize-none"
-                    placeholder="Contoh: Ebook diet..."
-                    value={idea} onChange={(e) => setIdea(e.target.value)} required
-                />
+                    <label className="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" /> Ide Awal
+                    </label>
+                    <textarea
+                        className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium outline-none focus:border-blue-500 focus:bg-white transition-all h-32 resize-none placeholder-slate-400"
+                        placeholder="Contoh: Jualan template undangan nikah..."
+                        value={idea} onChange={(e) => setIdea(e.target.value)} required
+                    />
                 </div>
             </div>
             <button
               type="submit" disabled={loading || !config.isActive}
-              className={`w-full text-white py-4 px-6 rounded-2xl font-black uppercase tracking-widest text-sm shadow-lg transition-all flex items-center justify-center gap-3 group ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}
+              className={`w-full text-white py-5 px-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-lg transition-all flex items-center justify-center gap-3 group active:scale-95 ${loading ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/30'}`}
             >
               {loading ? (
                 <><Loader2 className="animate-spin w-5 h-5" /> Menganalisa...</>
               ) : (
                 <><TrendingUp className="w-5 h-5 group-hover:scale-110 transition-transform" /> Mulai Riset AI
-                  <span className="bg-blue-800/40 text-[10px] font-bold py-1 px-2.5 rounded-lg text-blue-50 ml-1">-{config.creditCost} Poin</span>
+                  <span className="bg-blue-800/40 text-[9px] font-bold py-1 px-2.5 rounded-lg text-blue-50 ml-1">-{config.creditCost} Poin</span>
                 </>
               )}
             </button>
@@ -157,14 +169,17 @@ export default function RisetProdukPage() {
 
         {/* HASIL GENERATE */}
         {result && (
-            <div className="bg-white rounded-[1.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-blue-900/10 border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="bg-[#0F172A] p-6 flex justify-between items-center text-white">
-                    <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-3">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
                         <div className="bg-emerald-500/20 p-1.5 rounded-lg"><Trophy className="w-4 h-4 text-emerald-400" /></div>
                         Blueprint Produk
                     </h3>
                 </div>
-                <div className="p-6 md:p-10 prose prose-sm max-w-none">
+                <div className="p-8 md:p-12 prose prose-slate prose-sm max-w-none 
+                    prose-headings:font-bold prose-headings:text-slate-900 
+                    prose-p:text-slate-600 prose-p:leading-loose
+                    prose-strong:text-blue-700 prose-strong:font-black">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                 </div>
             </div>
@@ -173,7 +188,7 @@ export default function RisetProdukPage() {
 
       {/* KOLOM KANAN: HISTORY (Sinkron Database) */}
       <div className="lg:col-span-1">
-        <div className="sticky top-8 h-[calc(100vh-100px)]">
+        <div className="sticky top-8">
             <ToolHistory 
                 title="Riwayat Riset" 
                 historyData={history} 
