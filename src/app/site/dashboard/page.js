@@ -36,8 +36,8 @@ export default function DashboardPage() {
       icon: <Target size={22} className="text-white" />, 
       gradient: "from-emerald-500 to-teal-400",
       shadow: "shadow-emerald-500/40",
-      status: "PREMIUM",
-      isFree: false 
+      status: "ACTIVE",
+      isFree: true 
     },
     { 
       name: "Magic Ad Script", 
@@ -46,8 +46,8 @@ export default function DashboardPage() {
       icon: <Clapperboard size={22} className="text-white" />, 
       gradient: "from-violet-500 to-fuchsia-500",
       shadow: "shadow-violet-500/40",
-      status: "PREMIUM",
-      isFree: false 
+      status: "ACTIVE",
+      isFree: true 
     },
     { 
       name: "Landing Page", 
@@ -86,8 +86,8 @@ export default function DashboardPage() {
       icon: <Calculator size={22} className="text-white" />, 
       gradient: "from-indigo-500 to-blue-600",
       shadow: "shadow-indigo-500/40",
-      status: "PREMIUM", 
-      isFree: false 
+      status: "ACTIVE", 
+      isFree: true 
     },
     { 
       name: "Generate Gambar", 
