@@ -5,7 +5,7 @@ import {
   ImageIcon, Calculator, 
   CheckCircle2, ArrowRight, Flame, 
   Layers, Gift, Crown, Mail, Instagram, MessageSquare, 
-  PlayCircle, Plus, Minus, Globe, Cpu
+  Plus, Minus, Globe, Cpu
 } from 'lucide-react';
 import Link from 'next/link';
 import JsonLd from '@/components/JsonLd';
@@ -89,18 +89,14 @@ export default function LandingPage() {
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 px-4">
-          <Link href="/register" className="w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-blue-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 group">
-            <Zap size={16} className="text-yellow-400 fill-yellow-400 group-hover:scale-125 transition-transform"/> 
+          <Link href="/register" className="w-full sm:w-auto px-10 py-5 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-blue-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 group">
+            <Zap size={18} className="text-yellow-400 fill-yellow-400 group-hover:scale-125 transition-transform"/> 
             Ambil Akses Gratis
           </Link>
-          <button className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-900 rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
-            <PlayCircle size={16} className="text-slate-400"/> 
-            Lihat Demo
-          </button>
         </div>
       </section>
 
-      {/* --- 3. TECH STACK & CAPABILITIES (Ganti Bagian Ini) --- */}
+      {/* --- 3. TECH STACK & CAPABILITIES --- */}
       <div className="py-8 bg-white border-y border-slate-100 overflow-hidden relative z-20">
         <div className="max-w-7xl mx-auto px-6 text-center mb-6">
             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 flex items-center justify-center gap-2">
@@ -108,7 +104,6 @@ export default function LandingPage() {
             </p>
         </div>
         <div className="flex gap-12 animate-marquee whitespace-nowrap opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            {/* List Teknologi & Output yang "Jitu Banget" */}
             {['Powerfull AI', 'Jitu Speed', 'Best Perform', 'High Convertion', 'High CTR', 'Winning Product', 'Max ROAS', 'Low CPC', 'Viral Content', 'Auto Scale'].map((item, i) => (
                 <span key={i} className="text-lg font-black text-slate-300 uppercase italic tracking-tighter flex items-center gap-2">
                    <Zap size={12} className="text-blue-400 fill-blue-400" /> {item}
