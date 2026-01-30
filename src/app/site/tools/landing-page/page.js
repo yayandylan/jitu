@@ -300,42 +300,43 @@ export default function LandingPageBuilder() {
         </div>
 
         {/* Preview Container */}
-        {!generatedHtml ? (
-            <div className="text-center opacity-30">
-                <LayoutTemplate size={80} className="mx-auto text-slate-500 mb-6" />
-                <h3 className="text-slate-400 font-bold uppercase tracking-widest text-lg">Sales Page Preview</h3>
-                <p className="text-slate-600 text-sm mt-2 max-w-xs mx-auto">Upload foto produk, isi detail penawaran, dan biarkan AI menyusun struktur PAS yang mematikan.</p>
-            </div>
-        ) : (
-            viewMode === 'preview' ? (
-                // DEVICE MOCKUP (iPhone 16:9 Ratio Style)
-                <div className={`transition-all duration-500 relative bg-white shadow-2xl overflow-hidden
-                    ${deviceMode === 'mobile' 
-                        ? 'w-[375px] h-[812px] rounded-[3rem] border-[10px] border-[#121212] shadow-[0_0_80px_-20px_rgba(0,0,0,0.6)]' // iPhone Look
-                        : 'w-full h-full rounded-xl border border-slate-700'
-                    }
-                `}>
-                    {/* iPhone Notch */}
-                    {deviceMode === 'mobile' && (
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-[#121212] rounded-b-2xl z-20 flex items-center justify-center gap-3">
-                            <div className="w-8 h-1 rounded-full bg-slate-800"></div>
-                        </div>
-                    )}
-                    
-                    <iframe 
-                        srcDoc={generatedHtml} 
-                        className="w-full h-full bg-white" 
-                        title="Preview"
-                        sandbox="allow-scripts"
-                    />
+{!generatedHtml ? (
+    <div className="text-center opacity-30">
+        <LayoutTemplate size={80} className="mx-auto text-slate-500 mb-6" />
+        <h3 className="text-slate-400 font-bold uppercase tracking-widest text-lg">Sales Page Preview</h3>
+        <p className="text-slate-600 text-sm mt-2 max-w-xs mx-auto">Upload foto produk, isi detail penawaran, dan biarkan AI menyusun struktur PAS yang mematikan.</p>
+    </div>
+) : (
+    viewMode === 'preview' ? (
+        // --- FIX: DEVICE MOCKUP YANG RESPONSIF ---
+        <div className={`transition-all duration-500 relative bg-white shadow-2xl overflow-hidden flex flex-col
+            ${deviceMode === 'mobile' 
+                ? 'w-[360px] h-[90%] max-h-[740px] rounded-[3rem] border-[12px] border-[#121212] shadow-[0_0_80px_-20px_rgba(0,0,0,0.6)]' 
+                : 'w-full h-full rounded-xl border border-slate-700'
+            }
+        `}>
+            {/* iPhone Notch - Hanya muncul di Mobile */}
+            {deviceMode === 'mobile' && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#121212] rounded-b-2xl z-20 flex items-center justify-center">
+                    <div className="w-8 h-1 rounded-full bg-slate-800"></div>
                 </div>
-            ) : (
-                // Source Code View
-                <div className="w-full h-full overflow-auto custom-scrollbar bg-[#0d1117] p-6 rounded-2xl text-xs font-mono text-blue-300 border border-slate-800 shadow-inner">
-                    <pre>{generatedHtml}</pre>
-                </div>
-            )
-        )}
+            )}
+            
+            {/* Iframe: Pastikan height 100% dari kontainer mockup */}
+            <iframe 
+                srcDoc={generatedHtml} 
+                className="w-full h-full bg-white flex-1" 
+                title="Preview"
+                sandbox="allow-scripts"
+            />
+        </div>
+    ) : (
+        // Source Code View
+        <div className="w-full h-full overflow-auto custom-scrollbar bg-[#0d1117] p-6 rounded-2xl text-xs font-mono text-blue-300 border border-slate-800">
+            <pre>{generatedHtml}</pre>
+        </div>
+    )
+)}
       </div>
     </div>
   );
