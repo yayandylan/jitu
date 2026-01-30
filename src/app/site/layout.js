@@ -40,16 +40,20 @@ export default function DashboardLayout({ children }) {
     }
   };
 
+  // --- UPDATE KONFIGURASI MENU ---
   const rawMenuItems = [
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     { section: 'TOOLS UTAMA' },
     { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
-    { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: false },
-    { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: false },
-    { name: 'Landing Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
-    { name: 'Audit Funnel', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, isFree: false },
-    { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },
-    { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: false },
+    { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: true }, // FREE
+    { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: true }, // FREE
+    
+    // KELOMPOK PREMIUM (LOCK)
+    { name: 'Landing Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false }, // PREMIUM
+    { name: 'Audit Funnel', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, isFree: false }, // PREMIUM
+    { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false }, // PREMIUM
+    
+    { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: true }, // FREE
     { section: 'COMING SOON' },
     { name: 'Generate Gambar', href: '#', icon: <ImageIcon size={20} />, disabled: true, badge: 'SOON', isFree: false },
   ];
@@ -66,6 +70,7 @@ export default function DashboardLayout({ children }) {
       e.preventDefault();
       return;
     }
+    // Logika Akses: Jika tidak free DAN user bukan premium DAN bukan admin -> Redirek ke Topup
     if (!item.isFree && !userData?.isPremium && userData?.role !== 'admin') {
       e.preventDefault(); 
       router.push('/site/topup'); 
@@ -204,22 +209,18 @@ export default function DashboardLayout({ children }) {
 
                 {/* --- BADGE LOGIC PREMIUM --- */}
                 {isLocked ? (
-                    // BADGE UNLOCK: Premium Gradient Pill
                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 shadow-sm shadow-indigo-200 group-hover:shadow-indigo-400/30 transition-shadow">
                         <LockKeyhole size={10} className="text-white" strokeWidth={2.5} />
                         <span className="text-[9px] font-[900] text-white uppercase tracking-wider">Unlock</span>
                     </div>
                 ) : (
                     <>
-                        {/* BADGE HOT: Icon Only Glow */}
                         {item.badge === 'HOT' && (
                             <div className="relative flex items-center justify-center mr-1">
                                 <div className="absolute inset-0 bg-orange-500/20 blur-[4px] rounded-full animate-pulse"></div>
                                 <Flame size={16} className="text-orange-500 fill-orange-500 relative z-10" />
                             </div>
                         )}
-
-                        {/* BADGE SOON: Minimalist Pill */}
                         {item.badge === 'SOON' && (
                             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-400">
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
