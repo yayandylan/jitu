@@ -1,40 +1,51 @@
 import mongoose from 'mongoose';
 
 const HistorySchema = new mongoose.Schema({
-  // KUNCI UTAMA: Relasi ke User
+  // 1. Relasi ke User (Wajib index agar query per user cepat)
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', // FIX: Huruf Besar 'User' agar sesuai dengan model User.js
-    required: true 
+    ref: 'User', // Pastikan di User.js exportnya: mongoose.model('User', ...)
+    required: true,
+    index: true 
   },
   
-  // Jenis Tool (slug), misal: 'riset-produk', 'magic-ad-script'
+  // 2. Jenis Tool (Contoh: 'riset-produk', 'analisis-iklan')
   toolType: { 
     type: String, 
     required: true,
-    index: true // Tambahkan index biar query pencarian cepat
+    index: true 
   },
   
-  // Judul riwayat (opsional, untuk tampilan di sidebar)
+  // 3. Judul (Untuk tampilan di Sidebar)
   title: { 
     type: String, 
-    default: "Hasil Generate" 
+    default: "Tanpa Judul" 
   },
   
-  // Input User (Disimpan fleksibel bisa string/object)
+  // 4. Input User (Fleksibel: bisa simpan object skill, ide, angka, dll)
   inputData: { 
-    type: mongoose.Schema.Types.Mixed, // 'Mixed' lebih aman untuk JSON dinamis
-    required: true 
+    type: mongoose.Schema.Types.Mixed, 
+    default: {} 
   },
   
-  // Hasil Output AI
+  // 5. Output AI (Fleksibel: bisa string Markdown atau JSON)
   resultData: { 
     type: mongoose.Schema.Types.Mixed, 
     required: true 
+  },
+
+  // 6. Fitur Tambahan (Opsional: untuk filter favorit nanti)
+  isFavorite: {
+    type: Boolean,
+    default: false
   }
+
 }, { 
-  timestamps: true // Otomatis membuat createdAt dan updatedAt
+  timestamps: true // Otomatis field: createdAt, updatedAt
 });
 
-// FIX: Gunakan 'History' (Huruf Besar) agar konsisten satu aplikasi
-export default mongoose.models.History || mongoose.model('History', HistorySchema);
+// PENTING: Cek mongoose.models terlebih dahulu untuk mencegah error "OverwriteModelError"
+// saat hot-reload di Next.js (Development Mode)
+const History = mongoose.models.History || mongoose.model('History', HistorySchema);
+
+export default History;

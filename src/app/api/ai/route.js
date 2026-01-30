@@ -3,343 +3,335 @@ import OpenAI from 'openai';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import connectDB from '@/lib/db'; 
-import userModel from '@/models/User'; 
+import User from '@/models/User'; 
 import ToolConfig from '@/models/ToolConfig';
-import transactionModel from '@/models/Transaction'; 
+import Transaction from '@/models/Transaction'; 
 
 const openai = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: "https://openrouter.ai/api/v1",
 });
 
-// --- HELPER: FORMATTING GUARDRAILS ---
-// Instruksi ini akan ditempelkan ke setiap prompt agar output konsisten rapi.
+// --- GLOBAL FORMATTING GUARDRAILS ---
 const FORMATTING_INSTRUCTION = `
-*** ATURAN FORMATTING KETAT (WAJIB PATUH) ***:
-1. Gunakan FORMAT MARKDOWN yang rapi.
-2. Gunakan EMOJI di setiap Judul Utama (Header 1 & 2) untuk visual hierarchy.
-3. JANGAN membuat paragraf panjang. Pecah menjadi paragraf pendek (maksimal 3 baris).
-4. Gunakan BULLET POINTS atau LIST untuk rincian. Jangan koma berderet.
-5. Gunakan **BOLD** untuk kata kunci penting atau angka statistik.
-6. Jika membandingkan data, WAJIB gunakan TABEL Markdown.
-7. Berikan jarak antar seksi agar enak dibaca (Whitespace).
+*** ATURAN FORMATTING UI (WAJIB PATUH) ***:
+1. Gunakan FORMAT MARKDOWN standar.
+2. Gunakan EMOJI di setiap Judul Header (H1, H2, H3) untuk visual yang menarik.
+3. Gunakan **BOLD** untuk poin-poin penting dan angka uang.
+4. Gunakan LIST (Bullet points) daripada paragraf panjang.
+5. JANGAN membuat tembok teks. Maksimal 3 baris per paragraf.
+6. Berikan "Whitespace" (jarak antar baris) yang cukup agar enak dibaca di HP.
 `;
 
 export async function POST(req) {
   try {
-    const { type, data } = await req.json();
-    const token = cookies().get('token')?.value;
+    const body = await req.json();
+    const { type, data } = body;
+    
+    // Debugging: Cek di terminal apakah data masuk
+    console.log(`[AI REQUEST] Type: ${type}`, data);
 
+    const token = cookies().get('token')?.value;
     if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     
-    // 1. Verifikasi Token
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-
     await connectDB();
-    const user = await userModel.findById(decoded.userId);
+    const user = await User.findById(decoded.userId);
+    if (!user) return NextResponse.json({ message: 'User tidak ditemukan' }, { status: 404 });
     
-    const tool = await ToolConfig.findOne({ slug: type });
-
-    // 2. Cek Saldo & Status
-    if (!tool) return NextResponse.json({ message: 'Tool tidak ditemukan.' }, { status: 404 });
-    if (!tool.isActive) return NextResponse.json({ message: 'Tool sedang maintenance.' }, { status: 503 });
-    if (user.credits < tool.creditCost) {
-      return NextResponse.json({ message: 'Poin Anda tidak mencukupi.' }, { status: 402 }); 
+    let tool = await ToolConfig.findOne({ slug: type });
+    
+    if (!tool) {
+        tool = {
+            name: type ? type.replace(/-/g, ' ').toUpperCase() : 'UNKNOWN TOOL',
+            slug: type,
+            creditCost: 50,
+            isActive: true,
+            aiModel: 'anthropic/claude-3.5-sonnet' 
+        };
     }
+
+    if (!tool.isActive) return NextResponse.json({ message: 'Tool maintenance.' }, { status: 503 });
+    if (user.credits < tool.creditCost) return NextResponse.json({ message: 'Poin kurang.' }, { status: 402 });
 
     let messages = [];
 
     // ==========================================
-    // TOOL 1: RISET PRODUK
+    // TOOL 1: RISET PRODUK (FIXED)
     // ==========================================
     if (type === 'riset-produk') {
-      const { skills, idea } = data;
+      const { skills, idea } = data || {};
       
       const systemPrompt = `
         ${FORMATTING_INSTRUCTION}
+        ROLE: "Product Architect & Market Visionary".
+        STYLE: Cerdas, Kritis, Membuka Wawasan.
         
-        BERTINDAKLAH SEBAGAI: "Elite Product Strategist & Trend Forecaster".
-        TUGAS: Bedah ide user dan aset skill mereka untuk menemukan "Winning Product" di pasar Blue Ocean.
+        TUGAS: Analisa data user di bawah dan berikan "Business Blueprint" yang profitabel.
         
-        INPUT USER:
-        - Skill/Aset: ${skills}
-        - Ide Dasar: ${idea}
-
         INSTRUKSI KHUSUS:
-        1. Jangan berikan ide pasaran. Cari "Unique Angle" atau "Sub-Niche".
-        2. Gunakan Framework "Pain-Dream-Fix".
-        3. Wajib buat Product Ladder.
+        1. **JANGAN GENERIK.** Baca skill user baik-baik. Sesuaikan ide produk dengan kemampuan mereka.
+        2. **SCORING:** Beri skor 0-100 (Demand vs Kompetisi).
+        3. **THE PIVOT:** Jika ide user pasaran, ubah jadi unik.
+        4. **BAHASA:** Indonesia yang luwes dan persuasif.
+
+        STRUKTUR OUTPUT:
+        # 💎 [Nama Brand/Produk Usulan]
+        ### 📊 Skor Potensi: [Angka]/100
+        *(Alasan singkat)*
+
+        ### 💡 The "Aha!" Moment (Insight)
+        "Masalah pasar sebenarnya adalah..."
+
+        ### 🚀 Rekomendasi Produk (The Pivot)
+        Daripada cuma jual [Ide Lama], coba jual ini:
+        #### Opsi A: Fisik
+        ...
+        #### Opsi B: Digital/Jasa
+        ...
+
+        ### 🎯 Target Market "Blue Ocean"
+        - **Siapa:** ...
+        - **Musuh Bersama:** ...
         
-        FORMAT OUTPUT:
+        ### 💰 Simulasi Duit
+        - **Modal:** Rp ...
+        - **Jual:** Rp ...
+        - **Profit:** **Rp ...**
+      `;
+
+      // FIX: Data User dimasukkan ke User Prompt agar terbaca oleh AI
+      const userPrompt = `
+        Tolong analisa data saya ini secara mendalam:
+        1. ASET & SKILL SAYA: "${skills || 'Tidak spesifik'}"
+        2. IDE DASAR SAYA: "${idea || 'Belum ada ide, tolong carikan'}"
         
-        # 💎 Blueprint Produk Winning
-
-        > **POTENTIAL SCORE: [0-100]** • **STATUS: [Blue/Red Ocean]**
-
-        ## 🧠 The Golden Angle (Konsep Pembeda)
-        *Jelaskan kenapa produk ini unik.*
-
-        ## 🎯 Psikologi Market
-        - **The Pain (Neraka):** [Masalah spesifik]
-        - **The Dream (Surga):** [Keinginan spesifik]
-        - **The Bridge (Solusi):** [Produk Anda]
-
-        ## 💰 Product Ecosystem
-        | Level | Nama Produk & Konsep | Harga |
-        | :--- | :--- | :--- |
-        | **Tripwire** | ... | ... |
-        | **Core Offer** | ... | ... |
-        | **Profit Max** | ... | ... |
-
-        ## 🚀 Go-To-Market Strategy
-        [Strategi peluncuran singkat & padat]
+        Buatkan blueprint bisnis yang cocok dengan data di atas.
       `;
 
       messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Berikan saya blueprint produk yang susah ditolak market." }
+        { role: "user", content: userPrompt }
       ];
 
-    // ==========================================
-    // TOOL 2: VALIDASI MARKET
-    // ==========================================
+    // ... (Kode sebelumnya)
+
+    // ... (Kode sebelumnya)
+
+    // =================================================================================
+    // TOOL 2: VALIDASI MARKET (UPGRADE: MARKET VIABILITY & CTWA TEST)
+    // =================================================================================
     } else if (type === 'validasi-market') {
-       const { idea } = data;
+       const { idea } = data || {};
        
        const systemPrompt = `
         ${FORMATTING_INSTRUCTION}
 
-        BERTINDAKLAH SEBAGAI: "Ruthless Business Validator".
-        TUGAS: Validasi ide user sekeras mungkin. Jangan asal setuju. Cari celah kegagalannya.
+        ROLE: Kamu adalah "Senior Market Analyst" & "Media Buyer Expert".
+        MINDSET: Data-driven, Objektif, dan Berorientasi Profit. Kamu tidak peduli idenya "keren", kamu peduli "ada yang beli atau tidak".
 
-        IDE USER: ${idea}
+        TUGAS:
+        Analisa apakah produk ini LAYAK DIJUAL (Commercial Viability).
+        Jika produknya biasa saja (Red Ocean), paksa user untuk PIVOT/UPGRADE agar layak iklan.
+        Rancang strategi tes pasar termurah (CTWA) untuk membuktikan omonganmu.
 
-        FORMAT OUTPUT:
+        STRUKTUR OUTPUT (WAJIB PERSIS):
 
-        # 🛡️ Laporan Validasi Ide
+        # ⚖️ Vonis Pasar: [Nama Produk]
 
-        > **SKOR KELAYAKAN: [0-100]** • **VERDICT: [GASPOL / PIVOT / KILL]**
+        ### 📊 Skor "Winning Probability": [Angka]/100
+        > **KEPUTUSAN:** [LAYAK JUAL / BUTUH PIVOT / JANGAN DIJUAL]
+        *(Jelaskan alasannya dalam 2 kalimat tajam: Apakah demand tinggi? Apakah margin cukup? Apakah persaingan terlalu gila?)*
 
-        ## 💀 Pre-Mortem Analysis (Risiko Gagal)
-        1. [Risiko 1]
-        2. [Risiko 2]
-        3. [Risiko 3]
+        ### 🧭 Radar Pasar (Demand vs Kompetisi)
+        - **Volume Pencarian/Minat:** [Tinggi/Sedang/Rendah]
+        - **Kekejaman Kompetisi:** [Berdarah-darah/Sedang/Blue Ocean]
+        - **Masalah Utama Produk Ini:** [Misal: Tidak ada bedanya dengan kompetitor, Perang harga, dll]
 
-        ## 🎯 Laser-Targeted Persona
-        - **Siapa:** [Demografi]
-        - **Musuh Bersama:** [Apa yang mereka benci?]
-        - **Secret Desire:** [Keinginan terpendam]
+        ### 🛠️ Rekomendasi Pivot (Wajib Lakukan Ini!)
+        Agar produk ini benar-benar laku keras, JANGAN jual versi standarnya. Ubah menjadi:
+        - **Upgrade Produk:** [Cara membedakan produk fisik/jasa ini]
+        - **Upgrade Offer:** [Bukan cuma jual barang, tapi jual solusi/paket]
+        - **Target Market Spesifik:** [Jual ke siapa yang paling "sakit" butuh ini]
 
-        ## 🧪 Strategi "Smoke Test" (Validasi Hemat)
-        1. **Metode:** ...
-        2. **Angle Iklan:** ...
-        3. **Budget Tes:** ...
-        4. **KPI Lolos:** ...
+        ### 🧪 Validasi Low Budget (Strategi CTWA - WhatsApp)
+        Jangan stok barang banyak dulu! Cek respon pasar dengan budget **Rp 50.000 - Rp 100.000**.
+        
+        **1. Materi Iklan (Image/Video):**
+        "[Deskripsikan visual yang menghentikan scroll, misal: Foto produk zoom in + Teks Headline]"
+        
+        **2. Copywriting (Hook):**
+        "[Tulis 1 kalimat Hook pendek yang menyerang masalah spesifik]"
+        
+        **3. Indikator Lolos Tes:**
+        "Jalankan iklan 24 jam. Jika Biaya Per Chat (CPR) di bawah **Rp [Estimasi Angka]**, berarti produk ini WINNING dan siap di-scale up."
        `;
-
+       
+       // FIX: Masukkan data user ke prompt user agar dibaca detail
        messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Validasi ide saya. Jujur saja." }
+        { role: "user", content: `Tolong analisa kelayakan jual produk ini di pasar Indonesia: "${idea}"` }
        ];
 
-    // ==========================================
-    // TOOL 3: MAGIC AD SCRIPT
-    // ==========================================
+    // ... (Kode selanjutnya)
+
+    // ... (Kode sebelumnya)
+
+    // =================================================================================
+    // TOOL 3: MAGIC AD SCRIPT (UPGRADE: VIDEO + IMAGE + CAPTION)
+    // =================================================================================
     } else if (type === 'magic-ad-script') {
-       const { product, audience, benefit } = data;
+       const { product, audience, benefit } = data || {};
        
        const systemPrompt = `
         ${FORMATTING_INSTRUCTION}
 
-        BERTINDAKLAH SEBAGAI: "Legendary Direct Response Copywriter".
-        TUGAS: Menulis naskah iklan yang memanipulasi psikologi (etis) untuk konversi.
+        ROLE: Kamu adalah "Creative Director" & "Direct Response Copywriter" termahal di agensi iklan.
+        SKILL: Kamu ahli membuat konten yang "Stopping Power" (Menghentikan jempol orang saat scroll).
 
-        DATA:
-        - Produk: ${product}
-        - Target: ${audience}
-        - USP: ${benefit}
+        TUGAS:
+        Buatkan "Creative Ad Kit" lengkap (Video, Gambar, & Caption) berdasarkan data user.
+        Gunakan psikologi "Hypnotic Writing" yang persuasif tapi tidak terlihat seperti iklan murahan.
 
-        INSTRUKSI:
-        Buat 3 Variasi Script (Pain, Story, Logic).
+        STRUKTUR OUTPUT (WAJIB PERSIS):
 
-        FORMAT OUTPUT:
+        # ⚡ Creative Ad Kit: [Nama Produk]
 
-        # ⚡ Hypnotic Ad Scripts: ${product}
+        ### 🎬 1. Ide Video Pendek (TikTok/Reels)
+        **Konsep: "The Hook & Story"**
+        - **Visual (Detik 0-3):** [Deskripsi adegan visual yang aneh/mengejutkan untuk stop scroll]
+        - **Audio/Hook:** "[Kalimat pertama yang diucapkan voiceover/talent]"
+        - **Isi Cerita:** [Jelaskan alur singkat: Masalah -> Frustrasi -> Solusi Produk]
+        - **CTA (Ending):** "[Kalimat ajakan bertindak]"
 
-        ## 🔥 Variasi A: The "Agitate Pain"
-        > **Visual Cue:** [Adegan visual]
+        ### 🖼️ 2. Konsep Desain Gambar (Feeds/Story)
+        Jangan cuma foto produk! Buat desain seperti ini:
         
-        **Headline:** [Teks di Layar]
+        **Opsi A: Before-After (Visual Bukti)**
+        - **Visual:** [Deskripsi gambar kiri vs kanan]
+        - **Headline Teks di Gambar:** "[Copywriting pendek di dalam gambar, misal: 'Dulu X, Sekarang Y']"
         
-        **Body Copy:**
-        [Paragraf pembuka]
-        [Paragraf solusi]
-        [Penawaran]
+        **Opsi B: "Us vs Them" (Perbandingan)**
+        - **Visual:** [Tabel perbandingan atau foto produk user vs produk biasa]
+        - **Headline Teks di Gambar:** "[Copywriting yang menonjolkan keunggulan utama]"
+
+        ### 📝 3. Caption Iklan (Copywriting)
+        *(Copy-paste ini ke deskripsi iklan)*
         
-        **👉 CTA:** [Action]
-
-        ---
-
-        ## 📖 Variasi B: The "Relatable Story"
-        ... (Format sama)
-
-        ---
-
-        ## 💡 Variasi C: The "No-Brainer Logic"
-        ... (Format sama)
+        **Headline:** [Judul Caption yang Nendang]
+        
+        [Paragraf Pembuka: Sentuh Pain Point/Masalah audiens: "${audience}"]
+        
+        [Paragraf Tengah: Kenalkan "${product}" sebagai pahlawan dengan keunggulan "${benefit}"]
+        
+        [Paragraf Penutup: Penawaran Terbatas & Link]
+        👉 **Pesan Sekarang: [Link]**
        `;
-
+       
+       // FIX: Masukkan data user ke prompt user
        messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Buatkan naskah iklan konversi tinggi." }
+        { role: "user", content: `Buatkan materi iklan untuk:
+        - Produk: "${product}"
+        - Target Audiens: "${audience}"
+        - Keunggulan Utama (USP): "${benefit}"` }
        ];
 
+    // ... (Kode selanjutnya)
+
     // ==========================================
-    // TOOL 4: ANALISIS IKLAN
+    // TOOL 4: ANALISIS IKLAN (FIXED)
     // ==========================================
     } else if (type === 'analisis-iklan') {
-      const { spend, ctr, cpc, conversions, roas } = data;
-      
+      const { spend, ctr, cpc, conversions, roas } = data || {};
       const systemPrompt = `
         ${FORMATTING_INSTRUCTION}
+        ROLE: Dokter Bedah Iklan.
+        TUGAS: Audit performa iklan dan beri solusi teknis.
 
-        BERTINDAKLAH SEBAGAI: "Senior Media Buyer".
-        TUGAS: Audit data iklan user. Temukan kebocoran budget.
-
-        DATA:
-        - Spend: Rp ${spend} | ROAS: ${roas}x
-        - CTR: ${ctr}% | CPC: Rp ${cpc}
-        - Conversions: ${conversions}
-
-        FORMAT OUTPUT:
-
-        # 🩺 Diagnosis Iklan: Deep Dive
-
-        ## 📊 Rapor Performa: [SKOR 0-100]
-        > **STATUS:** [SCALING / OPTIMIZE / KILL]
-
-        ## 🩸 Root Cause Analysis (Kenapa Bocor?)
-        ### 1. Bedah Kreatif (CTR: ${ctr}%)
-        [Analisa...]
-
-        ### 2. Bedah Trafik (CPC: Rp ${cpc})
-        [Analisa...]
-
-        ### 3. Bedah Cuan (ROAS: ${roas}x)
-        [Analisa...]
-
-        ## 🛠️ Tactical Fix (Action Plan)
-        | Masalah | Solusi Teknis |
-        | :--- | :--- |
-        | **Iklan** | ... |
-        | **Landing Page** | ... |
+        STRUKTUR OUTPUT:
+        # 🩺 Diagnosis Iklan
+        ### 📊 Rapor: [Skor 0-100]
+        ...
+        ### 🩸 Analisa Kebocoran
+        ...
+        ### 🛠️ Solusi
+        ...
       `;
-
+      
       messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Audit data iklan saya." }
+        { role: "user", content: `Audit data ini: Spend Rp ${spend}, CTR ${ctr}%, CPC Rp ${cpc}, Conv ${conversions}, ROAS ${roas}x` }
       ];
 
     // ==========================================
-    // TOOL 5: KALKULATOR ADS
+    // TOOL 5: KALKULATOR ADS (FIXED)
     // ==========================================
     } else if (type === 'kalkulator-ads') {
-      const { productPrice, cogs, expectedCpr } = data;
-      
+      const { productPrice, cogs, expectedCpr } = data || {};
       const systemPrompt = `
         ${FORMATTING_INSTRUCTION}
+        ROLE: CFO E-Commerce.
+        TUGAS: Hitung unit economics dan kelayakan bisnis.
 
-        BERTINDAKLAH SEBAGAI: "CFO E-Commerce".
-        TUGAS: Hitung unit economics bisnis user.
-
-        DATA:
-        - Jual: ${productPrice} | HPP: ${cogs} | CPR Target: ${expectedCpr}
-
-        FORMAT OUTPUT:
-
-        # 💸 Laporan Kelayakan Finansial
-
-        ## 📊 Skor Kesehatan: [0-100]
-        > **VONIS:** [SEHAT / RISKAN / BONCOS]
-
-        ## 🧮 Bedah Unit Economics
-        - **Gross Margin:** Rp [Hitung]
-        - **Max CPR (Batas Rugi):** Rp [Hitung]
-        - **Break-Even ROAS:** [Hitung]x
-
-        ## ⚠️ Simulasi Profit
-        - **Optimis:** Profit Rp ...
-        - **Realistis:** Profit Rp ...
-        - **Pessimis:** Rugi Rp ...
-
-        ## 💡 Rekomendasi
-        [Saran strategis singkat]
+        STRUKTUR OUTPUT:
+        # 💸 Laporan Kelayakan
+        ### 📊 Skor: [0-100]
+        ...
+        ### 🧮 Bedah Cuan
+        ...
       `;
-
+      
       messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Hitung profitabilitas bisnis saya." }
+        { role: "user", content: `Hitung profit saya: Harga Jual ${productPrice}, HPP ${cogs}, Target CPR ${expectedCpr}` }
       ];
 
     // ==========================================
-    // TOOL 6: LANDING PAGE (HTML ONLY)
+    // TOOL 6: LANDING PAGE (FIXED)
     // ==========================================
     } else if (type === 'landing-page') {
-      const { product, target, offer, style, productKnowledge, testimoniData } = data;
-      
+      const { product, target, offer, style, productKnowledge, testimoniData } = data || {};
       const systemPrompt = `
-       BERTINDAKLAH SEBAGAI: "Expert CRO Developer".
+       ROLE: Expert Web Developer.
        TUGAS: Buat kode HTML Landing Page Sales High Conversion.
-       
-       DATA:
-       - Produk: ${product} | Target: ${target}
-       - Offer: ${offer} | Style: ${style}
-       - Knowledge: ${productKnowledge}
-       - Testimoni: ${testimoniData}
-
-       INSTRUKSI:
-       1. OUTPUT HANYA KODE HTML (Tanpa Markdown, Tanpa Penjelasan).
-       2. Gunakan Tailwind CSS (CDN).
-       3. Mobile-First Design.
-       4. Structure: Navbar -> Hero -> Pain -> Solution -> Benefit -> Proof -> Pricing -> FAQ -> Footer.
-       5. Gunakan Font 'Inter'.
+       INSTRUKSI: OUTPUT HANYA KODE HTML. Gunakan Tailwind CSS CDN. Mobile-First.
       `;
-
+      
       messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: "Buatkan kode landing page." }
+        { role: "user", content: `Buatkan LP untuk: ${product}, Target: ${target}, Offer: ${offer}, Style: ${style}, Info: ${productKnowledge}, Testi: ${testimoniData}` }
       ];
     
     } else {
-       // Fallback untuk tool lain
+       // Fallback
        messages = [
            { role: "system", content: FORMATTING_INSTRUCTION },
            { role: "user", content: `Analisa data ini: ${JSON.stringify(data)}` }
        ];
     }
 
-    // --- 4. EKSEKUSI AI ---
+    // 6. Eksekusi AI
     const completion = await openai.chat.completions.create({
-      model: tool.aiModel || "openai/gpt-4o-mini", 
+      model: tool.aiModel || "anthropic/claude-3.5-sonnet",
       messages: messages,
       temperature: 0.7,
-      max_tokens: 3000, 
+      max_tokens: 3500,
     });
 
     const result = completion.choices[0].message.content;
 
-    // --- 5. POTONG POIN & SIMPAN ---
+    // 7. Potong Poin & Simpan Transaksi
     user.credits -= tool.creditCost;
     await user.save();
 
-    await transactionModel.create({
+    await Transaction.create({
       userId: user._id,
       amount: tool.creditCost,
       type: 'out',
       description: `Tool: ${tool.name}`,
       status: 'success',
-      // Simpan estimasi modal API (Contoh: $0.01 per request * 16000 IDR)
-      actualCost: 160 
+      actualCost: 100 
     });
 
     return NextResponse.json({ 

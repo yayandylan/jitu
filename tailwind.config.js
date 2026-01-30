@@ -13,5 +13,8 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Plugin ini WAJIB ada agar hasil Markdown (Generated AI) jadi rapi
+    require('@tailwindcss/typography'), 
+  ],
 };

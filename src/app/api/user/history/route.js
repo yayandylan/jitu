@@ -2,34 +2,45 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
-// FIX: Pastikan pakai model History (untuk simpan hasil generate AI)
 import History from '@/models/History'; 
 
 export const dynamic = 'force-dynamic';
 
-// 1. GET: Ambil Riwayat Generate AI
+// --- HELPER: Auth Check (Biar gak duplikat code) ---
+const getUserId = () => {
+  const token = cookies().get('token')?.value;
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    return decoded.userId;
+  } catch (error) {
+    return null;
+  }
+};
+
+// =================================================================
+// 1. GET: Ambil Riwayat (Untuk Sidebar / Halaman History)
+// =================================================================
 export async function GET(req) {
   try {
-    const token = cookies().get('token')?.value;
-    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     await connectDB();
+    const userId = getUserId();
+    if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     
-    // Ambil query params
+    // Ambil parameter filter
     const { searchParams } = new URL(req.url);
-    const toolType = searchParams.get('tool'); // misal: 'magic-ad-script'
+    const toolType = searchParams.get('tool'); // misal: 'riset-produk'
     const limit = Number(searchParams.get('limit')) || 20;
 
-    let query = { userId: decoded.userId };
+    let query = { userId };
     
-    // Jika ada filter tool tertentu
+    // Filter by tool jika ada
     if (toolType) {
         query.toolType = toolType;
     }
 
     const history = await History.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1 }) // Terbaru di atas
       .limit(limit);
 
     return NextResponse.json({ 
@@ -43,30 +54,65 @@ export async function GET(req) {
   }
 }
 
-// 2. DELETE: Hapus Riwayat Tertentu
+// =================================================================
+// 2. POST: Simpan Riwayat Baru (INI YANG KEMARIN HILANG)
+// =================================================================
+export async function POST(req) {
+  try {
+    await connectDB();
+    const userId = getUserId();
+    if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+    const { toolType, title, inputData, resultData } = body;
+
+    // Validasi sederhana
+    if (!toolType || !resultData) {
+        return NextResponse.json({ message: 'Data history tidak lengkap' }, { status: 400 });
+    }
+
+    // Simpan ke MongoDB
+    const newHistory = await History.create({
+        userId,
+        toolType,
+        title: title || 'Generate AI',
+        inputData: inputData || {},
+        resultData
+    });
+
+    return NextResponse.json({ 
+        success: true, 
+        data: newHistory 
+    });
+
+  } catch (error) {
+    console.error("History POST Error:", error);
+    return NextResponse.json({ message: 'Gagal menyimpan riwayat' }, { status: 500 });
+  }
+}
+
+// =================================================================
+// 3. DELETE: Hapus Riwayat
+// =================================================================
 export async function DELETE(req) {
   try {
-    const token = cookies().get('token')?.value;
-    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     await connectDB();
+    const userId = getUserId();
+    if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-        return NextResponse.json({ message: 'ID diperlukan' }, { status: 400 });
-    }
+    if (!id) return NextResponse.json({ message: 'ID diperlukan' }, { status: 400 });
 
-    // Hapus hanya jika milik user tersebut
+    // Hapus data (Pastikan milik user yang login)
     const deleted = await History.findOneAndDelete({ 
         _id: id, 
-        userId: decoded.userId 
+        userId 
     });
 
     if (!deleted) {
-        return NextResponse.json({ message: 'Data tidak ditemukan atau bukan milik Anda' }, { status: 404 });
+        return NextResponse.json({ message: 'Data tidak ditemukan / Akses ditolak' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, message: 'Riwayat berhasil dihapus' });
