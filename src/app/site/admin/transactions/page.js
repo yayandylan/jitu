@@ -22,14 +22,14 @@ export default function AdminTransactions() {
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       
-      // Ambil data dari API
       const res = await fetch(params.toString() ? `${url}?${params.toString()}` : url);
       const data = await res.json();
       
-      // Validasi data array
-      setTransactions(Array.isArray(data) ? data : []);
+      // FIX: Ambil data dari data.data (Karena API mengembalikan { data: [...] })
+      setTransactions(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       console.error("Gagal mengambil data:", error);
+      setTransactions([]);
     } finally { 
       setLoading(false); 
     }
@@ -40,18 +40,18 @@ export default function AdminTransactions() {
     if (!confirm(`Yakin ingin mengubah status menjadi ${status.toUpperCase()}? Saldo user akan bertambah.`)) return;
     
     try {
-      // Panggil API Approval yang sudah kita buat (yang ada logika notif + premium)
+      // Menuju API Tunggal: /api/transaction/[id]
       const res = await fetch(`/api/transaction/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: status }) // status: 'success'
+        body: JSON.stringify({ status: status }) 
       });
       
       const result = await res.json();
 
       if (res.ok) {
         alert(result.message || "Berhasil diupdate!");
-        fetchTransactions(); // Refresh data
+        fetchTransactions(); // Refresh data tabel
       } else {
         alert("Gagal: " + result.message);
       }
@@ -64,15 +64,19 @@ export default function AdminTransactions() {
   const handleDelete = async (id) => {
     if (!confirm("Hapus transaksi ini permanen? Data tidak bisa kembali.")) return;
     try {
-      const res = await fetch(`/api/admin/transactions/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchTransactions();
+      // Arahkan ke API Tunggal dengan method DELETE
+      const res = await fetch(`/api/transaction/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert("Terhapus!");
+        fetchTransactions();
+      }
     } catch (e) { alert("Gagal menghapus"); }
   };
 
   useEffect(() => { fetchTransactions(); }, [startDate, endDate]);
 
   // --- FILTERING LOGIC (CLIENT SIDE) ---
-  const filteredByTab = transactions.filter(t => t.type === tab);
+  const filteredByTab = transactions.filter(t => t.type === tab || (tab === 'in' && t.type === 'topup'));
   
   const searchedData = filteredByTab.filter(item => {
     const name = item.userId?.name?.toLowerCase() || 'user';
@@ -81,22 +85,18 @@ export default function AdminTransactions() {
     const uniqueCode = item.uniqueCode ? item.uniqueCode.toString() : '';
     const search = searchTerm.toLowerCase();
     
-    // Cari berdasarkan Nama, Email, Order ID, atau Kode Unik
     return name.includes(search) || orderId.includes(search) || email.includes(search) || uniqueCode.includes(search);
   });
 
-  // --- STATISTIK RINGKAS (REALTIME) ---
-  // Total Uang Masuk (Hanya yang SUKSES)
+  // --- STATISTIK RINGKAS ---
   const totalIncome = transactions
-    .filter(t => t.type === 'in' && t.status === 'success')
-    .reduce((sum, t) => sum + (t.price || t.totalPrice || 0), 0); // Support field 'price' & 'totalPrice'
+    .filter(t => (t.type === 'in' || t.type === 'topup') && t.status === 'success')
+    .reduce((sum, t) => sum + (t.amount || 0), 0); // Rupiah ada di field amount
 
-  // Total Poin Keluar (Usage)
   const totalAISpentPoints = transactions
     .filter(t => t.type === 'out')
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  // Total Modal API (Pengeluaran Riil ke OpenRouter)
   const totalModalAI = transactions
     .filter(t => t.type === 'out')
     .reduce((sum, t) => sum + (t.actualCost || 0), 0);
@@ -157,7 +157,6 @@ export default function AdminTransactions() {
 
       {/* 2. AREA FILTER & SEARCH */}
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Input Pencarian */}
         <div className="flex-1 bg-white p-3 rounded-3xl border border-slate-100 flex items-center px-4 shadow-sm group hover:border-blue-200 transition-colors">
           <Search className="w-4 h-4 text-slate-400 mr-2 group-hover:text-blue-500" />
           <input 
@@ -169,7 +168,6 @@ export default function AdminTransactions() {
           />
         </div>
 
-        {/* Filter Tanggal */}
         <div className="bg-white p-3 rounded-3xl border border-slate-100 flex items-center px-4 shadow-sm gap-2">
           <Calendar className="w-4 h-4 text-slate-400" />
           <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="bg-transparent text-[10px] font-bold outline-none text-slate-600 uppercase" />
@@ -202,8 +200,8 @@ export default function AdminTransactions() {
                 <th className="px-8 py-6">Order ID</th>
                 <th className="px-6 py-6">User / Waktu</th>
                 <th className="px-6 py-6">Keterangan</th>
-                <th className="px-6 py-6">Nominal</th>
-                <th className="px-6 py-6">{tab === 'in' ? 'Status Bayar' : 'Biaya Modal'}</th>
+                <th className="px-6 py-6">Poin</th>
+                <th className="px-6 py-6">{tab === 'in' ? 'Total Transfer' : 'Biaya Modal'}</th>
                 <th className="px-8 py-6 text-right">Aksi</th>
               </tr>
             </thead>
@@ -219,39 +217,34 @@ export default function AdminTransactions() {
               ) : (
                 searchedData.map((item) => (
                   <tr key={item._id} className="hover:bg-slate-50/50 transition-colors group">
-                    {/* ID & Kode Unik */}
                     <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">
                       #{item._id?.slice(-6).toUpperCase()}
-                      {item.uniqueCode > 0 && (
-                          <span className="block text-blue-600 bg-blue-50 w-fit px-1 rounded mt-1">Kode: {item.uniqueCode}</span>
+                      {/* Tampilkan Kode Unik jika ada di deskripsi atau field */}
+                      {item.description?.includes('Kode:') && (
+                         <span className="block text-blue-600 bg-blue-50 w-fit px-1 rounded mt-1">{item.description.split('(')[1]?.replace(')','')}</span>
                       )}
                     </td>
 
-                    {/* User Info */}
                     <td className="px-6 py-5">
                       <p className="font-bold text-slate-800 uppercase text-[11px]">{item.userId?.name || 'User Terhapus'}</p>
                       <p className="text-[9px] text-slate-400 font-medium mt-0.5">{item.userId?.email}</p>
                       <p className="text-[9px] text-slate-300 font-medium mt-0.5">{new Date(item.createdAt).toLocaleString('id-ID')}</p>
                     </td>
 
-                    {/* Deskripsi */}
                     <td className="px-6 py-5 font-medium text-slate-500 text-[11px]">
                       {item.description}
-                      {item.packageName && <span className="block text-[9px] text-blue-400 font-bold uppercase">{item.packageName}</span>}
                     </td>
 
-                    {/* Jumlah Poin */}
                     <td className="px-6 py-5">
                       <span className={`font-black text-xs px-2 py-1 rounded-lg ${tab === 'in' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                        {tab === 'in' ? '+' : '-'}{item.amount?.toLocaleString('id-ID')}
+                        {tab === 'in' ? '+' : '-'}{item.credits?.toLocaleString('id-ID') || item.amount?.toLocaleString('id-ID')}
                       </span>
                     </td>
 
-                    {/* Status / Modal */}
                     <td className="px-6 py-5 font-bold text-slate-700">
                       {tab === 'in' ? (
                         <div className="space-y-1">
-                             <span className="text-blue-700 font-black text-xs">Rp {(item.price || item.totalPrice || 0).toLocaleString('id-ID')}</span>
+                             <span className="text-blue-700 font-black text-xs">Rp {(item.amount || 0).toLocaleString('id-ID')}</span>
                              <div className={`text-[9px] font-bold uppercase tracking-wider w-fit px-1.5 py-0.5 rounded flex items-center gap-1
                                 ${item.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 
                                   item.status === 'failed' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
@@ -267,7 +260,6 @@ export default function AdminTransactions() {
                       )}
                     </td>
 
-                    {/* Aksi */}
                     <td className="px-8 py-5 text-right flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                       {tab === 'in' && item.status === 'pending' && (
                         <>

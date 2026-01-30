@@ -5,76 +5,53 @@ import connectDB from '@/lib/db';
 import Transaction from '@/models/Transaction'; 
 import User from '@/models/User'; 
 
-export const dynamic = 'force-dynamic'; // Supaya data selalu update
+export const dynamic = 'force-dynamic';
 
-// --- MIDDLEWARE INTERNAL: CEK ADMIN ---
-async function isAdminAuthorized() {
-  const token = cookies().get('token')?.value;
-  if (!token) return false;
+export async function GET(req) {
   try {
+    // 1. CEK AUTH & ADMIN ROLE
+    const token = cookies().get('token')?.value;
+    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     
-    // Cek role di token
-    if (decoded.role === 'admin') return true;
-    
-    // Double check ke database (lebih aman)
-    await connectDB();
-    const user = await User.findById(decoded.userId);
-    return user && user.role === 'admin';
-  } catch (error) {
-    return false;
-  }
-}
+    // Security Check: Pastikan yang request adalah Admin
+    if (decoded.role !== 'admin') {
+        return NextResponse.json({ message: 'Forbidden Access' }, { status: 403 });
+    }
 
-/**
- * GET: Mengambil SEMUA data transaksi (untuk Admin Dashboard)
- */
-export async function GET(req) {
-  // 1. Cek Admin Dulu
-  const isAdmin = await isAdminAuthorized();
-  if (!isAdmin) {
-    return NextResponse.json({ message: 'Unauthorized: Admin Access Only' }, { status: 403 });
-  }
-
-  try {
     await connectDB();
 
-    // 2. Ambil parameter filter dari URL
+    // 2. Logic Filter Tanggal (Disiapkan jika nanti Frontend butuh filter)
     const { searchParams } = new URL(req.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-
     let query = {};
 
-    // 3. Logika Filter Tanggal (Opsional)
     if (startDate && endDate) {
       const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0); // Awal hari (00:00)
-      
+      start.setHours(0, 0, 0, 0); 
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Akhir hari (23:59)
+      end.setHours(23, 59, 59, 999); 
 
-      query.createdAt = {
-        $gte: start,
-        $lte: end
-      };
+      query.createdAt = { $gte: start, $lte: end };
     }
 
-    // 4. Tarik data dan hubungkan ke model User
+    // 3. AMBIL DATA TRANSAKSI
     const transactions = await Transaction.find(query)
-      .populate({
-        path: 'userId',
-        model: User, // Pastikan Model User (Huruf Besar)
-        select: 'name email' // Ambil nama & email saja untuk efisiensi
-      })
-      .sort({ createdAt: -1 }) // Urutkan dari yang terbaru
-      .lean(); // Optimasi performa (return plain JSON object)
+      .populate('userId', 'name email') // Ambil Nama & Email User
+      .sort({ createdAt: -1 }); // Urutkan dari yang terbaru (Newest First)
 
-    return NextResponse.json(transactions);
+    // 4. RETURN RESPONSE (FORMAT HARUS { data: ... })
+    // Agar sinkron dengan frontend: setTransactions(data.data)
+    return NextResponse.json({ 
+        success: true,
+        data: transactions 
+    });
 
   } catch (error) {
     console.error("ADMIN TRANSACTIONS ERROR:", error);
-    // Return array kosong agar Frontend tidak crash (map error)
-    return NextResponse.json([], { status: 500 });
+    // Return data array kosong agar Frontend tidak crash
+    return NextResponse.json({ data: [] }, { status: 500 });
   }
 }
