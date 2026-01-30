@@ -287,28 +287,94 @@ export async function POST(req) {
         { role: "user", content: `Hitung profit saya: Harga Jual ${productPrice}, HPP ${cogs}, Target CPR ${expectedCpr}` }
       ];
 
+    // ... (kode atas sama)
+
+    // ... (kode atas tetap sama)
+
+    // ... (kode atas sama)
+
     // ==========================================
-    // TOOL 6: LANDING PAGE (FIXED)
+    // TOOL 6: LANDING PAGE BUILDER (SALES PAGE MOBILE-FIRST)
     // ==========================================
     } else if (type === 'landing-page') {
-      const { product, target, offer, style, productKnowledge, testimoniData } = data || {};
+      const { product, target, offer, details, testiCount } = data || {};
+      
       const systemPrompt = `
-       ROLE: Expert Web Developer.
-       TUGAS: Buat kode HTML Landing Page Sales High Conversion.
-       INSTRUKSI: OUTPUT HANYA KODE HTML. Gunakan Tailwind CSS CDN. Mobile-First.
+       ROLE: Direct Response Copywriter & Frontend Dev (Spesialis Mobile Sales Page).
+       GOAL: Buat Landing Page HTML konversi tinggi untuk iklan (FB/TikTok Ads).
+       STYLE: Clean, Fast Loading, Mobile-First (Tampilan HP).
+       FRAMEWORK: PAS (Problem - Agitation - Solution).
+
+       TUGAS:
+       Buat 1 File HTML lengkap dengan Tailwind CSS CDN.
+
+       DATA PRODUK:
+       - Nama: ${product}
+       - Target: ${target}
+       - Penawaran: ${offer}
+       - Detail: ${details}
+       - Jumlah Slot Testi: ${testiCount || 1}
+
+       STRUKTUR WAJIB (URUTAN LOGIS):
+       1. **HERO SECTION (Tanpa Navbar/Logo):**
+          - Headline Merah/Hitam Tebal (Janji Utama).
+          - Sub-headline (Solusi Instan).
+          - Gambar Produk Utama (src="{{PRODUCT_IMAGE}}").
+          - Tombol CTA 1 (Animasi Pulse).
+
+       2. **PROBLEM (Masalah):**
+          - "Apakah Anda sering mengalami ini?"
+          - 3-4 Poin masalah yang relate dengan ${target} (Gunakan Icon Silang/Merah).
+
+       3. **AGITATION (Dampak Buruk):**
+          - Apa akibatnya jika masalah tidak diatasi? (Bikin user cemas).
+
+       4. **SOLUTION (Perkenalan Produk):**
+          - "Tenang, kini ada solusinya..."
+          - Nama Produk & Deskripsi Singkat.
+
+       5. **BENEFIT (Keunggulan):**
+          - 5 Poin Keunggulan Utama (Gunakan Icon Centang Hijau).
+
+       6. **SOCIAL PROOF (Testimoni):**
+          - Judul: "Apa Kata Mereka?"
+          - Grid Gambar Testimoni (${testiCount} slot).
+          - Gunakan src="{{TESTIMONI_0}}", src="{{TESTIMONI_1}}", dst.
+
+       7. **THE OFFER (Harga & Bonus):**
+          - Kotak Harga Spesial.
+          - Harga Coret (Mahal) vs Harga Diskon (Murah).
+          - List Bonus (jika ada).
+
+       8. **GARANSI (Risk Reversal):**
+          - Icon Perisai/Jaminan.
+          - Garansi Uang Kembali/Kepuasan.
+
+       9. **FAQ (Tanya Jawab):**
+          - 3 Pertanyaan umum & jawaban singkat (Accordion Style).
+
+       10. **CTA (Khusus Mobile):**
+           - Tombol Beli dibawah THE OFFER (Harga & Bonus)
+
+       ATURAN KODING:
+       - HILANGKAN Navbar, Footer Website, Link Social Media, dan Logo Brand. Fokus Jualan!
+       - Gunakan <script src="https://cdn.tailwindcss.com"></script>.
+       - Font: Inter atau Poppins.
+       - Background: Putih bersih, Section Problem abu-abu sangat muda.
+       - Tombol CTA: Warna Kuning Emas atau Hijau Terang (Gradient).
+       - Padding: Optimalkan untuk layar HP (px-4 atau px-5).
       `;
       
       messages = [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Buatkan LP untuk: ${product}, Target: ${target}, Offer: ${offer}, Style: ${style}, Info: ${productKnowledge}, Testi: ${testimoniData}` }
+        { role: "user", content: `Buatkan Sales Page untuk "${product}". Hard selling, to the point.` }
       ];
-    
-    } else {
-       // Fallback
-       messages = [
-           { role: "system", content: FORMATTING_INSTRUCTION },
-           { role: "user", content: `Analisa data ini: ${JSON.stringify(data)}` }
-       ];
+
+    // ... (kode bawah sama)
+
+    // ... (kode bawah tetap sama)
+
+    // ... (kode bawah sama)
     }
 
     // 6. Eksekusi AI

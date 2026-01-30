@@ -2,15 +2,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { deleteCookie } from 'cookies-next'; 
 import { Poppins } from 'next/font/google';
 import NotificationBell from '@/components/NotificationBell'; 
 import { 
-  LayoutDashboard, User, Search, Target, Clapperboard, 
+  LayoutDashboard, Search, Target, Clapperboard, 
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
   LogOut, Zap, ShieldCheck, Wallet, Plus, Settings,
   Menu, X, LayoutTemplate, 
-  LockKeyhole, Flame 
+  LockKeyhole, Flame, Clock 
 } from 'lucide-react';
 
 const poppins = Poppins({ 
@@ -22,12 +21,11 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [userData, setUserData] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchUserData();
-    setSidebarOpen(false); // Tutup sidebar setiap kali pindah halaman
+    setSidebarOpen(false); 
   }, [pathname]);
 
   const fetchUserData = async () => {
@@ -36,20 +34,19 @@ export default function DashboardLayout({ children }) {
       const data = await res.json();
       if (data.user) {
         setUserData(data.user);
-        setIsAdmin(data.user.role === 'admin');
       }
     } catch (error) {
-      console.error("Gagal sinkron data");
+      console.error("Gagal sinkron data user");
     }
   };
 
-  const menuItems = [
+  const rawMenuItems = [
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     { section: 'TOOLS UTAMA' },
     { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
     { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: false },
     { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: false },
-    { name: 'Landing Page Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
+    { name: 'Landing Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
     { name: 'Audit Funnel', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, isFree: false },
     { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },
     { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: false },
@@ -57,33 +54,34 @@ export default function DashboardLayout({ children }) {
     { name: 'Generate Gambar', href: '#', icon: <ImageIcon size={20} />, disabled: true, badge: 'SOON', isFree: false },
   ];
 
-  if (isAdmin) {
-    menuItems.push(
+  if (userData?.role === 'admin') {
+    rawMenuItems.push(
       { section: 'ADMINISTRATOR' },
       { name: 'Admin Panel', href: '/site/admin', icon: <ShieldCheck size={20} />, adminOnly: true, isFree: true }
     );
   }
 
-  // --- LOGIKA UTAMA REDIRECT ---
   const handleMenuClick = (e, item) => {
-    // 1. Jika menu "Coming Soon" (Disabled) -> Jangan lakukan apa-apa
     if (item.disabled) {
       e.preventDefault();
       return;
     }
-
-    // 2. LOGIKA UNLOCK: Jika Tool Berbayar DAN User Belum Premium
-    if (!item.isFree && !userData?.isPremium) {
-      e.preventDefault(); // STOP! Jangan masuk ke halaman tool
-      router.push('/site/topup'); // LEMPAR ke halaman Top Up
-      setSidebarOpen(false); // Tutup sidebar (jika di mobile)
+    if (!item.isFree && !userData?.isPremium && userData?.role !== 'admin') {
+      e.preventDefault(); 
+      router.push('/site/topup'); 
+      setSidebarOpen(false);
     }
+  };
+
+  const handleLogout = () => {
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
+    window.location.href = "/login";
   };
 
   return (
     <div className={`min-h-screen bg-slate-50 flex ${poppins.className} tracking-tighter`}>
       
-      {/* --- MOBILE HEADER --- */}
+      {/* MOBILE HEADER */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-100 z-[60] flex items-center justify-between px-4 shadow-sm">
         <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg">
@@ -92,7 +90,7 @@ export default function DashboardLayout({ children }) {
             <span className="text-sm font-[900] text-slate-900 uppercase">JITU <span className="text-blue-600">DIGITAL</span></span>
         </div>
         <div className="flex items-center gap-2">
-            <NotificationBell />
+            <NotificationBell /> 
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)}
                 className="p-2 bg-slate-50 rounded-xl text-slate-600 active:scale-90 transition-all"
@@ -102,7 +100,7 @@ export default function DashboardLayout({ children }) {
         </div>
       </header>
 
-      {/* --- BACKDROP MOBILE --- */}
+      {/* BACKDROP */}
       {isSidebarOpen && (
         <div 
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[45] md:hidden"
@@ -110,13 +108,13 @@ export default function DashboardLayout({ children }) {
         />
       )}
 
-      {/* --- SIDEBAR --- */}
+      {/* SIDEBAR */}
       <aside className={`
         w-72 md:w-64 bg-white border-r border-slate-100 fixed h-full z-50 flex flex-col transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         
-        {/* LOGO DESKTOP */}
+        {/* LOGO */}
         <div className="h-16 hidden md:flex items-center justify-between px-5 border-b border-slate-50 shrink-0">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1 rounded-lg shadow-md">
@@ -127,36 +125,38 @@ export default function DashboardLayout({ children }) {
           <NotificationBell />
         </div>
 
-        {/* LOGO MOBILE INSIDE SIDEBAR */}
-        <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-slate-50 shrink-0">
+        {/* MOBILE HEADER INSIDE */}
+        <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-slate-50 shrink-0 bg-slate-50">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Navigation Menu</span>
             <button onClick={() => setSidebarOpen(false)} className="p-1 text-slate-400"><X size={20}/></button>
         </div>
 
-        {/* WIDGET SALDO */}
-        <div className="px-4 md:px-3 pt-6 md:pt-3 pb-2 shrink-0">
-          <div className={`rounded-2xl p-5 md:p-4 relative overflow-hidden group shadow-xl border transition-all duration-500 ${userData?.isPremium ? 'bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-900 border-blue-400/30' : 'bg-[#0F172A] border-slate-800'}`}>
-            {/* Background Decor */}
+        {/* SALDO WIDGET */}
+        <div className="px-4 md:px-3 pt-6 md:pt-4 pb-2 shrink-0">
+          <div className={`rounded-2xl p-5 md:p-4 relative overflow-hidden group shadow-lg border transition-all duration-500 
+            ${userData?.isPremium 
+                ? 'bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-900 border-blue-400/30 ring-1 ring-blue-500/20' 
+                : 'bg-[#0F172A] border-slate-800'}`
+          }>
             <Zap className={`absolute -right-5 -bottom-6 opacity-10 rotate-12 pointer-events-none w-28 h-28 ${userData?.isPremium ? 'text-yellow-400 fill-yellow-400' : 'text-blue-500 fill-blue-500'}`} />
             
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-start mb-1">
+            <div className="relative z-10 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
                 <p className="text-[10px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                    {userData?.isPremium ? '💎 Premium Account' : 'Total Saldo Poin'}
+                    {userData?.isPremium ? '💎 Premium Member' : 'Total Saldo Poin'}
                 </p>
-                <div className="bg-blue-500/20 p-1.5 rounded-lg text-blue-400">
+                <div className="bg-white/10 p-1.5 rounded-lg text-white/80">
                     <Wallet size={14} />
                 </div>
               </div>
               <div className="flex items-end justify-between">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-2xl md:text-xl font-semibold text-white tracking-tighter leading-none">
+                  <span className="text-2xl md:text-xl font-bold text-white tracking-tighter leading-none">
                     {userData?.credits?.toLocaleString('id-ID') || 0}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-medium">pts</span>
+                  <span className="text-[10px] text-slate-400 font-medium">pts</span>
                 </div>
-                {/* Tombol Plus ke Topup */}
-                <Link href="/site/topup" className="bg-blue-600 w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded-xl text-white shadow-lg hover:scale-105 active:scale-95 transition-all">
+                <Link href="/site/topup" className="bg-blue-600 hover:bg-blue-500 w-8 h-8 md:w-7 md:h-7 flex items-center justify-center rounded-xl text-white shadow-lg hover:scale-110 active:scale-95 transition-all">
                   <Plus size={16} strokeWidth={3} />
                 </Link>
               </div>
@@ -164,34 +164,34 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
 
-        {/* MENU ITEMS */}
-        <nav className="flex-1 overflow-y-auto px-3 md:px-2 space-y-1 mt-2 custom-scrollbar">
-          {menuItems.map((item, index) => {
+        {/* MENU */}
+        <nav className="flex-1 overflow-y-auto px-3 md:px-2 space-y-1 mt-2 pb-10 custom-scrollbar">
+          {rawMenuItems.map((item, index) => {
             if (item.section) {
               return (
                 <div key={index} className="px-3 pt-5 pb-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{item.section}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{item.section}</p>
                 </div>
               );
             }
 
-            const isActive = pathname === item.href;
-            const isLocked = !item.isFree && !userData?.isPremium && !item.disabled;
+            const isActive = pathname.startsWith(item.href);
+            const isLocked = !item.isFree && !userData?.isPremium && userData?.role !== 'admin' && !item.disabled;
 
             return (
               <Link
                 key={index}
-                href={item.href} // Href tetap ada (penting untuk SEO/Hover), tapi di-intercept onClick
-                onClick={(e) => handleMenuClick(e, item)} // <-- INI KUNCINYA
+                href={item.href} 
+                onClick={(e) => handleMenuClick(e, item)}
                 className={`
-                  flex items-center justify-between px-4 py-3 md:px-3 md:py-2.5 rounded-xl text-sm font-semibold transition-all group select-none
+                  flex items-center justify-between px-4 py-3 md:px-3 md:py-2.5 rounded-xl text-sm font-semibold transition-all group select-none relative
                   ${isActive 
-                    ? 'bg-blue-50 text-blue-600' 
+                    ? 'bg-blue-50 text-blue-600 shadow-sm' 
                     : item.disabled 
                       ? 'text-slate-400 cursor-not-allowed opacity-60' 
                       : isLocked
-                        ? 'text-slate-500 hover:bg-slate-50 cursor-pointer hover:shadow-sm' 
-                        : 'text-slate-900 hover:bg-slate-50 hover:text-blue-600'
+                        ? 'text-slate-500 hover:bg-slate-50 cursor-pointer' 
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-blue-600'
                   }
                 `}
               >
@@ -199,27 +199,31 @@ export default function DashboardLayout({ children }) {
                   <span className={isActive ? 'text-blue-600' : (item.disabled || isLocked ? 'text-slate-400' : 'text-slate-400 group-hover:text-blue-600')}>
                     {item.icon}
                   </span>
-                  <span className="flex-1 tracking-tight">{item.name}</span>
+                  <span className="flex-1 tracking-tight text-[13px]">{item.name}</span>
                 </div>
 
-                {/* Badge Logic */}
+                {/* --- BADGE LOGIC PREMIUM --- */}
                 {isLocked ? (
-                    // Tampilan Badge UNLOCK
-                    <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 px-2 py-1 rounded-lg shadow-sm group-hover:scale-105 transition-transform">
-                        <LockKeyhole size={10} className="text-white" strokeWidth={3} />
-                        <span className="text-[9px] font-black text-white uppercase tracking-tighter">Unlock</span>
+                    // BADGE UNLOCK: Premium Gradient Pill
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 shadow-sm shadow-indigo-200 group-hover:shadow-indigo-400/30 transition-shadow">
+                        <LockKeyhole size={10} className="text-white" strokeWidth={2.5} />
+                        <span className="text-[9px] font-[900] text-white uppercase tracking-wider">Unlock</span>
                     </div>
                 ) : (
                     <>
+                        {/* BADGE HOT: Icon Only Glow */}
                         {item.badge === 'HOT' && (
-                            <div className="relative flex items-center justify-center w-5 h-5">
-                                <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-md animate-pulse"></div>
-                                <Flame size={14} className="text-orange-500 fill-orange-500 animate-bounce" />
+                            <div className="relative flex items-center justify-center mr-1">
+                                <div className="absolute inset-0 bg-orange-500/20 blur-[4px] rounded-full animate-pulse"></div>
+                                <Flame size={16} className="text-orange-500 fill-orange-500 relative z-10" />
                             </div>
                         )}
+
+                        {/* BADGE SOON: Minimalist Pill */}
                         {item.badge === 'SOON' && (
-                            <div className="bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                                <span className="text-[8px] font-black text-emerald-600 uppercase">SOON</span>
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                                <span className="text-[8px] font-[800] uppercase tracking-wider">SOON</span>
                             </div>
                         )}
                     </>
@@ -229,20 +233,20 @@ export default function DashboardLayout({ children }) {
           })}
         </nav>
 
-        {/* FOOTER SIDEBAR */}
-        <div className="p-4 border-t border-slate-100 shrink-0 space-y-1 bg-white">
-           <Link href="/site/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-900 hover:bg-slate-50'}`}>
-              <Settings size={20} className="text-slate-400" /> Profil & Setting
+        {/* FOOTER */}
+        <div className="p-3 border-t border-slate-100 shrink-0 space-y-1 bg-white">
+           <Link href="/site/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Settings size={18} className="text-slate-400" /> Profil
            </Link>
            
-           <button onClick={() => { deleteCookie('token'); window.location.href = "/login"; }} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
-              <LogOut size={20} /> Keluar Aplikasi
+           <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-xs font-bold uppercase tracking-wider text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+              <LogOut size={18} /> Keluar
            </button>
         </div>
       </aside>
 
-      {/* --- CONTENT AREA --- */}
-      <div className={`flex-1 w-full transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : 'md:ml-64'}`}>
+      {/* CONTENT */}
+      <div className={`flex-1 w-full transition-all duration-300 md:ml-64`}>
         <main className="pt-20 md:pt-8 p-4 md:p-8 max-w-7xl mx-auto leading-tight min-h-screen">
             {children}
         </main>
