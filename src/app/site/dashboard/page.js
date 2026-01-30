@@ -101,29 +101,24 @@ export default function DashboardPage() {
     },
   ];
 
-  // --- OPTIMIZED DATA FETCHING (PARALLEL) ---
   useEffect(() => {
     async function loadDashboardData() {
         setLoading(true);
         try {
-            // Jalankan kedua request secara BERSAMAAN (Parallel), bukan antrian (Waterfall)
             const [userRes, histRes] = await Promise.all([
                 fetch('/api/user/me').catch(() => null),
                 fetch('/api/user/history?limit=3').catch(() => null)
             ]);
 
-            // Process User Data
             if (userRes && userRes.ok) {
                 const userData = await userRes.json();
                 if (userData.user) setUserData(userData.user);
             }
 
-            // Process History Data
             if (histRes && histRes.ok) {
                 const histData = await histRes.json();
                 setHistory(Array.isArray(histData.data) ? histData.data : []);
             }
-
         } catch (error) {
             console.error("Dashboard Load Error:", error);
         } finally {
@@ -143,13 +138,11 @@ export default function DashboardPage() {
   return (
     <div className="max-w-[1280px] mx-auto space-y-6 md:space-y-8 pb-24 pt-2 font-sans antialiased text-slate-900 px-4 md:px-2 relative">
       
-      {/* 0. AMBIENT BACKGROUND GLOW */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-40 bg-blue-500/10 blur-[100px] pointer-events-none rounded-full z-0"></div>
 
-      {/* 1. HEADER: ULTRA GLASSMORPHISM */}
+      {/* 1. HEADER */}
       <div className="relative z-20 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/70 backdrop-blur-2xl p-5 rounded-[2rem] border border-white/50 shadow-xl shadow-slate-200/40 sticky top-20 md:top-4 transition-all gap-4 md:gap-0">
         <div className="flex items-center gap-4 w-full md:w-auto">
-          {/* Avatar Premium */}
           <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[1.2rem] flex items-center justify-center text-white shadow-lg shrink-0 relative overflow-hidden group border border-slate-700">
             <Zap size={24} fill="currentColor" className="text-yellow-400 relative z-10 group-hover:scale-110 transition-transform duration-500" />
             {userData.isPremium && (
@@ -177,12 +170,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Top Up Button (Desktop) */}
         <Link href="/site/topup" className="hidden md:flex bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] hover:bg-blue-600 transition-all items-center gap-2.5 shadow-xl hover:shadow-blue-600/25 active:scale-95 group">
              <div className="bg-white/10 p-1 rounded-full group-hover:bg-white/20 transition-colors"><Wallet size={14} /></div> 
              Isi Saldo
         </Link>
-        {/* Top Up Button (Mobile - Full Width) */}
         <Link href="/site/topup" className="md:hidden w-full bg-slate-900 text-white py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg active:scale-95">
              <Wallet size={16} /> Isi Saldo Poin
         </Link>
@@ -194,41 +185,38 @@ export default function DashboardPage() {
         {/* --- LEFT COLUMN: TOOLS (8 Cols) --- */}
         <div className="lg:col-span-8 space-y-8">
             
-            {/* HERO BANNER (Responsive Adjustments) */}
+            {/* HERO BANNER: RISET PRODUK */}
             <div className="relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] bg-[#0B1121] border border-slate-800 p-6 md:p-10 shadow-2xl shadow-blue-900/10 group isolate">
-                {/* Background FX */}
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:30px_30px] opacity-20"></div>
                 <div className="absolute -top-20 -right-20 w-64 md:w-96 h-64 md:h-96 bg-blue-600/20 blur-[80px] md:blur-[120px] rounded-full pointer-events-none"></div>
                 
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-8">
-                    {/* Text */}
                     <div className="max-w-xl space-y-4 md:space-y-5">
-                        <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1 backdrop-blur-sm">
+                        <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1 backdrop-blur-sm">
                             <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                             </span>
-                            <span className="text-[9px] md:text-[10px] font-black text-blue-400 uppercase tracking-widest">New Tool</span>
+                            <span className="text-[9px] md:text-[10px] font-black text-emerald-400 uppercase tracking-widest">Wajib Coba</span>
                         </div>
 
                         <div>
                             <h2 className="text-2xl md:text-4xl font-black text-white uppercase tracking-tighter leading-none mb-2">
-                                Landing Page <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Express</span>
+                                Riset Produk <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Winning</span>
                             </h2>
                             <p className="text-slate-400 text-xs md:text-sm font-medium leading-relaxed max-w-sm">
-                                Bikin sales page konversi tinggi dalam hitungan detik. Tanpa koding, instan jadi HTML siap pakai.
+                                Temukan produk yang sedang tren dan memiliki potensi profit tinggi sebelum kompetitor Anda tahu.
                             </p>
                         </div>
 
-                        <Link href="/site/tools/landing-page" className="inline-flex items-center gap-3 bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 active:scale-95 group/btn w-full md:w-auto justify-center">
-                            Buat Sekarang <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform" />
+                        <Link href="/site/tools/riset-produk" className="inline-flex items-center gap-3 bg-blue-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20 active:scale-95 group/btn w-full md:w-auto justify-center">
+                            Mulai Riset <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform" />
                         </Link>
                     </div>
 
-                    {/* Visual 3D Icon (Hidden on small mobile, visible on desktop) */}
                     <div className="hidden md:block pr-6">
                         <div className="relative w-36 h-36 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-blue-500/30 rotate-6 group-hover:rotate-12 transition-all duration-700 border border-white/10">
-                            <LayoutTemplate size={64} className="text-white drop-shadow-md" strokeWidth={1.5} />
+                            <Search size={64} className="text-white drop-shadow-md" strokeWidth={1.5} />
                             <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent rounded-[2rem] pointer-events-none"></div>
                         </div>
                     </div>
@@ -261,8 +249,6 @@ export default function DashboardPage() {
                             >
                                 <div className="flex items-start justify-between relative z-10">
                                     <div className="flex items-center gap-4 md:gap-5">
-                                        
-                                        {/* ICON BOX */}
                                         <div className={`
                                             w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center 
                                             ${tool.shadow} shadow-lg group-hover:scale-110 transition-transform duration-500 relative ring-4 ring-white
@@ -275,8 +261,6 @@ export default function DashboardPage() {
                                             <h4 className="text-xs md:text-sm font-black text-slate-800 uppercase tracking-tight group-hover:text-blue-600 transition-colors">
                                                 {tool.name}
                                             </h4>
-                                            
-                                            {/* Status Badges */}
                                             {isSoon ? (
                                                 <div className="inline-block bg-slate-100 text-slate-400 px-2 py-0.5 rounded-md text-[8px] md:text-[9px] font-bold uppercase tracking-wider">
                                                     Coming Soon
@@ -292,8 +276,6 @@ export default function DashboardPage() {
                                             )}
                                         </div>
                                     </div>
-                                    
-                                    {/* Action Button */}
                                     {!isLocked && !isSoon && (
                                         <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
                                             <ArrowRight size={16} />
@@ -305,7 +287,6 @@ export default function DashboardPage() {
                                         </div>
                                     )}
                                 </div>
-                                
                                 <p className="text-[10px] md:text-[11px] text-slate-500 font-medium leading-relaxed mt-4 md:mt-5 pl-1 opacity-80 group-hover:opacity-100 transition-opacity">
                                     {tool.desc}
                                 </p>
@@ -316,15 +297,12 @@ export default function DashboardPage() {
             </div>
         </div>
 
-        {/* --- RIGHT COLUMN: STATS & HISTORY (4 Cols) --- */}
+        {/* --- RIGHT COLUMN --- */}
         <div className="lg:col-span-4 space-y-6">
-            
-            {/* HISTORY CARD */}
             <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 border border-slate-100 shadow-sm flex flex-col h-full min-h-[400px]">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                     <TrendingUp size={14} /> Aktivitas Terakhir
                 </h3>
-                
                 <div className="space-y-4 flex-1">
                     {history.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
@@ -356,12 +334,10 @@ export default function DashboardPage() {
                 </div>
             </div>
 
-            {/* UPGRADE PROMO (Jika Free) */}
             {!userData.isPremium && (
                 <div className="bg-[#0A0C10] rounded-[2rem] md:rounded-[2.5rem] p-8 text-white border border-yellow-500/20 relative overflow-hidden text-center group">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-500 to-amber-500"></div>
                     <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-yellow-500/20 blur-[50px] rounded-full"></div>
-                    
                     <div className="relative z-10">
                         <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl border border-slate-700 mx-auto mb-4 flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
                              <Crown size={28} className="text-yellow-400 fill-yellow-400" />
@@ -377,7 +353,6 @@ export default function DashboardPage() {
                 </div>
             )}
         </div>
-
       </div>
     </div>
   );
