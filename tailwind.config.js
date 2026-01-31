@@ -8,13 +8,13 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Ini akan memaksa semua class 'font-sans' memakai Poppins
+        // Ini memastikan seluruh web otomatis pakai Poppins (Modern & Clean)
         sans: ["var(--font-poppins)", "sans-serif"],
       },
     },
   },
   plugins: [
-    // Plugin ini WAJIB ada agar hasil Markdown (Generated AI) jadi rapi
+    // Plugin ini KUNCI agar hasil chat AI (Markdown) jadi cantik & rapi
     require('@tailwindcss/typography'), 
   ],
 };

@@ -6,7 +6,7 @@ import History from '@/models/History';
 
 export const dynamic = 'force-dynamic';
 
-// --- HELPER: Auth Check (Biar gak duplikat code) ---
+// --- HELPER: Auth Check ---
 const getUserId = () => {
   const token = cookies().get('token')?.value;
   if (!token) return null;
@@ -19,7 +19,7 @@ const getUserId = () => {
 };
 
 // =================================================================
-// 1. GET: Ambil Riwayat (Untuk Sidebar / Halaman History)
+// 1. GET: Ambil Riwayat
 // =================================================================
 export async function GET(req) {
   try {
@@ -27,26 +27,18 @@ export async function GET(req) {
     const userId = getUserId();
     if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     
-    // Ambil parameter filter
     const { searchParams } = new URL(req.url);
-    const toolType = searchParams.get('tool'); // misal: 'riset-produk'
+    const toolType = searchParams.get('tool');
     const limit = Number(searchParams.get('limit')) || 20;
 
     let query = { userId };
-    
-    // Filter by tool jika ada
-    if (toolType) {
-        query.toolType = toolType;
-    }
+    if (toolType) query.toolType = toolType;
 
     const history = await History.find(query)
-      .sort({ createdAt: -1 }) // Terbaru di atas
+      .sort({ createdAt: -1 })
       .limit(limit);
 
-    return NextResponse.json({ 
-        success: true,
-        data: history 
-    });
+    return NextResponse.json({ success: true, data: history });
 
   } catch (error) {
     console.error("History GET Error:", error);
@@ -55,7 +47,7 @@ export async function GET(req) {
 }
 
 // =================================================================
-// 2. POST: Simpan Riwayat Baru (INI YANG KEMARIN HILANG)
+// 2. POST: Simpan Riwayat Baru (Awal Chat)
 // =================================================================
 export async function POST(req) {
   try {
@@ -66,24 +58,15 @@ export async function POST(req) {
     const body = await req.json();
     const { toolType, title, inputData, resultData } = body;
 
-    // Validasi sederhana
-    if (!toolType || !resultData) {
-        return NextResponse.json({ message: 'Data history tidak lengkap' }, { status: 400 });
-    }
-
-    // Simpan ke MongoDB
     const newHistory = await History.create({
         userId,
         toolType,
         title: title || 'Generate AI',
-        inputData: inputData || {},
+        inputData: inputData || {}, // Menyimpan array chat awal
         resultData
     });
 
-    return NextResponse.json({ 
-        success: true, 
-        data: newHistory 
-    });
+    return NextResponse.json({ success: true, data: newHistory });
 
   } catch (error) {
     console.error("History POST Error:", error);
@@ -92,7 +75,44 @@ export async function POST(req) {
 }
 
 // =================================================================
-// 3. DELETE: Hapus Riwayat
+// 3. PUT: Update Riwayat (KHUSUS CHAT LANJUTAN) [PENTING!]
+// =================================================================
+export async function PUT(req) {
+  try {
+    await connectDB();
+    const userId = getUserId();
+    if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json();
+    const { id, inputData, resultData } = body;
+
+    if (!id) return NextResponse.json({ message: 'History ID wajib ada' }, { status: 400 });
+
+    // Cari history milik user ini dan update datanya (timpa chat lama dengan chat baru yang lebih panjang)
+    const updatedHistory = await History.findOneAndUpdate(
+      { _id: id, userId }, // Security: Pastikan punya user yang login
+      { 
+        inputData,  // Update array chat
+        resultData, // Update jawaban terakhir
+        updatedAt: new Date() 
+      },
+      { new: true } // Return data terbaru setelah update
+    );
+
+    if (!updatedHistory) {
+        return NextResponse.json({ message: 'Riwayat tidak ditemukan' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, data: updatedHistory });
+
+  } catch (error) {
+    console.error("History PUT Error:", error);
+    return NextResponse.json({ message: 'Gagal update riwayat' }, { status: 500 });
+  }
+}
+
+// =================================================================
+// 4. DELETE: Hapus Riwayat
 // =================================================================
 export async function DELETE(req) {
   try {
@@ -105,15 +125,9 @@ export async function DELETE(req) {
 
     if (!id) return NextResponse.json({ message: 'ID diperlukan' }, { status: 400 });
 
-    // Hapus data (Pastikan milik user yang login)
-    const deleted = await History.findOneAndDelete({ 
-        _id: id, 
-        userId 
-    });
+    const deleted = await History.findOneAndDelete({ _id: id, userId });
 
-    if (!deleted) {
-        return NextResponse.json({ message: 'Data tidak ditemukan / Akses ditolak' }, { status: 404 });
-    }
+    if (!deleted) return NextResponse.json({ message: 'Data tidak ditemukan' }, { status: 404 });
 
     return NextResponse.json({ success: true, message: 'Riwayat berhasil dihapus' });
 
