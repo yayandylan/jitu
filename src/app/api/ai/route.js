@@ -229,7 +229,7 @@ export async function POST(req) {
     }
 
     // ==========================================
-    // D. LANDING PAGE BUILDER (LOVABLE STYLE - PREMIUM)
+    // D. LANDING PAGE BUILDER (PREMIUM AESTHETIC & READABILITY)
     // ==========================================
     else if (type === 'landing-page') {
         const { productName, targetMarket, productKnowledge, benefits, testimoniCount, price, originalPrice } = data;
@@ -237,50 +237,97 @@ export async function POST(req) {
         systemPrompt = `
         ${FORMATTING_INSTRUCTION}
         
-        ROLE: Kamu adalah "Jitu Web Architect". Desainer UI/UX kelas dunia (Style: Clean, Modern, Lovable.dev quality) & Copywriter Konversi Tinggi.
+        CONTEXT:
+        Kamu adalah "Jitu Web Architect" & "Direct Response Copywriter" kelas dunia. 
+        Tugasmu membuat Landing Page HTML Single File yang **Sangat Cantik (Aesthetic)**, **Mudah Dibaca (Scannable)**, dan **High-Converting**.
         
-        TUGAS: Buat **FULL SOURCE CODE HTML** (Single File) menggunakan **Tailwind CSS**.
+        TEKNOLOGI WAJIB:
+        - Tailwind CSS (CDN).
+        - Google Fonts: 'Plus Jakarta Sans' (Heading) & 'Inter' (Body).
+        - Font Awesome (CDN) untuk icon.
         
-        STYLE GUIDE (WAJIB ESTETIK):
-        - **Font:** Gunakan 'Inter' atau 'Plus Jakarta Sans'.
-        - **Warna:** Gunakan palet warna modern (Slate-900 untuk teks, Emerald-600 atau Indigo-600 untuk CTA).
-        - **Visual:** Gunakan *Rounded Corners* (rounded-2xl atau rounded-3xl), *Soft Shadows* (shadow-xl shadow-slate-200), dan *Gradient* halus untuk background section tertentu.
-        - **Whitespace:** Berikan padding yang luas (py-16 atau py-24) agar desain bernafas dan terlihat mahal.
+        ATURAN DESAIN (VISUAL HIERARCHY):
+        1.  **Typography:** - Gunakan \`leading-relaxed\` (jarak antar baris lega).
+            - Jangan buat paragraf lebih dari 3 baris. Pecah jadi paragraf pendek.
+            - **WAJIB:** Gunakan <b>Bold</b> atau <span class="bg-yellow-200 px-1">Highlight Kuning</span> untuk kata-kata penting agar mata pembaca tidak bosan.
+        2.  **Color Palette:**
+            - Background: White & Slate-50 (selang-seling antar section).
+            - Primary: Emerald-600 to Teal-500 (Gradient).
+            - Text: Slate-800 (Heading), Slate-600 (Body).
+        3.  **Components:**
+            - Card: \`bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6\`.
+            - Button: \`bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white font-bold py-4 px-8 rounded-full shadow-lg shadow-emerald-500/30 transform hover:-translate-y-1 transition-all duration-300 animate-pulse\`.
         
-        STRUKTUR KONTEN (RESPONSIVE):
-        1. **NAVBAR (Sticky/Glass):** Logo Teks di kiri, Tombol CTA kecil di kanan. Backdrop blur.
-        2. **HERO SECTION:** - Layout: Kiri Teks (Headline Besar 4xl-6xl), Kanan Gambar.
-           - Di Mobile: Teks dulu, baru gambar.
-           - Gambar: <img src="__PRODUCT_IMAGE__" class="w-full rounded-[2rem] shadow-2xl rotate-1 hover:rotate-0 transition duration-500">
-        3. **SOCIAL PROOF (Logos/Numbers):** Baris kecil "Dipercaya oleh 1000+ [Target Market]".
-        4. **PAIN POINTS:** - Grid 3 kolom. Card putih dengan icon warning/silang.
-        5. **SOLUTION (Benefit):** - Layout Zig-Zag (Gambar - Teks, lalu Teks - Gambar).
-           - List dengan icon checklist cantik (bg-green-100 text-green-600 rounded-full p-1).
-        6. **TESTIMONIALS (Masonry/Grid):** - Grid 2 atau 3 kolom. Card estetik.
-           - Gunakan: <img src="__TESTIMONI_0__" class="w-12 h-12 rounded-full object-cover"> (Avatar kecil) atau Foto Besar jika testimoni berupa screenshot.
-        7. **PRICING CARD (Center):** - Card tunggal yang sangat menonjol (Border tebal/Gradient border).
-           - Harga Coret: Rp ${originalPrice} (text-slate-400 line-through).
-           - Harga Jual: Rp ${price} (text-5xl font-black text-slate-900 tracking-tight).
-           - **CTA BUTTON:** Sangat Besar, Full Width, Shadow Glow.
-        8. **FAQ & FOOTER:** Clean simple.
+        STRUKTUR KONTEN (SALES LETTER STYLE - CUANDARIKONTEN):
         
-        ATURAN PLACEHOLDER (JANGAN DIGANTI):
-        - Gambar Produk: __PRODUCT_IMAGE__
-        - Gambar Testimoni: __TESTIMONI_0__, __TESTIMONI_1__, dst.
-        - JANGAN pakai link placeholder online. Biarkan string di atas apa adanya.
+        1.  **HEADLINE AREA (Narrow Container):**
+            - Logo Teks "JituDigital" (kecil di atas).
+            - Pre-headline: "PERHATIAN: Khusus ${targetMarket}..." (Merah maroon).
+            - **HEADLINE:** Besar (4xl-5xl), Bold, Hitam. Janjikan hasil instan/solusi.
+            - Sub-headline: Abu-abu tua, menjelaskan "Tanpa Resiko".
+        
+        2.  **HERO IMAGE:**
+            - Gambar Produk (__PRODUCT_IMAGE__) dengan styling: \`rounded-3xl shadow-2xl border-4 border-white transform rotate-1 hover:rotate-0 transition\`.
+            - Tombol CTA Pertama.
+        
+        3.  **THE PAIN (Masalah - Background Rose-50/Red-50):**
+            - Headline: "Apakah Anda Merasakan Ini?"
+            - List 5 Masalah dengan icon ❌ (Silang Merah).
+            - Style: Setiap poin masalah dibungkus dalam card putih kecil shadow tipis.
+        
+        4.  **THE STORY (Bridge - Background White):**
+            - Cerita singkat (Storytelling) dengan paragraf pendek-pendek.
+            - Gunakan formatting bold pada emosi (misal: **Frustasi**, **Bingung**, **Capek**).
+        
+        5.  **THE SOLUTION (Produk):**
+            - "Memperkenalkan..."
+            - Nama Produk (Besar).
+            - Deskripsi singkat.
+        
+        6.  **BENEFIT STACK (Background Slate-50):**
+            - "Apa Saja Yang Anda Dapatkan?"
+            - Grid 2 Kolom (Desktop) / 1 Kolom (HP).
+            - Tiap Benefit punya Icon Unik (Checkmark/Star/Rocket).
+            - Judul Benefit (Bold) + Penjelasan (Regular).
+        
+        7.  **SOCIAL PROOF (Testimoni):**
+            - Headline: "Kata Mereka..."
+            - Layout: Masonry Grid.
+            - Gunakan __TESTIMONI_X__ dalam tag img bulat/kotak estetik.
+        
+        8.  **THE OFFER (Pricing Section - Special Design):**
+            - Kotak Pricing dengan Border Tebal Putus-putus (Dashed) warna Primary.
+            - Harga Coret (Kecil, Merah).
+            - **Harga Jual** (Sangat Besar, Hijau).
+            - Timer Mundur (Dummy text: "Promo Berakhir Malam Ini!").
+            - **BIG FAT BUTTON CTA.**
+        
+        9.  **FAQ (Accordion Style):**
+            - 5 Pertanyaan Wajib (Garansi, Cara Akses, Gaptek bisa?, dll).
+            - Style: Details/Summary HTML tag dengan panah.
+        
+        10. **FOOTER:** Simple copyright.
+        
+        ATURAN GAMBAR (STRICT):
+        - Gunakan LINK INI SAJA untuk placeholder (biar frontend bisa replace):
+          - Produk: "https://placehold.co/800x600/e2e8f0/1e293b?text=Product+Image"
+          - Testimoni: "https://placehold.co/100x100/e2e8f0/1e293b?text=User"
+        
+        OUTPUT:
+        Hanya kode HTML lengkap dari <!DOCTYPE html> sampai </html>.
         `;
         
         const benefitsList = benefits ? benefits.join(', ') : 'Lengkap';
         
-        firstUserMsg = `Buatkan Landing Page Premium & High Conversion untuk:
+        firstUserMsg = `Buatkan Premium Sales Page untuk:
         - Produk: "${productName}"
         - Target: "${targetMarket}"
-        - Info: "${productKnowledge}"
-        - Keunggulan: "${benefitsList}"
-        - Harga: Coret Rp ${originalPrice}, Jual Rp ${price}
-        - Slot Testimoni: ${testimoniCount || 1}
+        - Copywriting Info: "${productKnowledge}"
+        - Benefit Utama: "${benefitsList}"
+        - Harga: Rp ${price} (Diskon dari Rp ${originalPrice})
+        - Jumlah Testimoni: ${testimoniCount || 2}
         
-        Desain harus bersih, modern, dan terlihat mahal (seperti startup unicorn).`;
+        PENTING: Buat paragraf pendek-pendek, gunakan banyak BOLD dan HIGHLIGHT agar enak dibaca (Skimmable). Desain harus terlihat mahal dan terpercaya.`;
     }
     
     // ==========================================
