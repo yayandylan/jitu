@@ -9,7 +9,7 @@ import {
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
   LogOut, Zap, ShieldCheck, Wallet, Plus, Settings,
   Menu, X, LayoutTemplate, 
-  LockKeyhole, Flame, Clock 
+  Lock, Flame, Sparkles, Crown
 } from 'lucide-react';
 
 const poppins = Poppins({ 
@@ -32,28 +32,27 @@ export default function DashboardLayout({ children }) {
     try {
       const res = await fetch('/api/user/me');
       const data = await res.json();
-      if (data.user) {
-        setUserData(data.user);
-      }
-    } catch (error) {
-      console.error("Gagal sinkron data user");
-    }
+      if (data.user) setUserData(data.user);
+    } catch (error) {}
   };
 
-  // --- UPDATE KONFIGURASI MENU ---
+  // --- MENU CONFIG ---
   const rawMenuItems = [
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
-    { section: 'TOOLS UTAMA' },
+    
+    { section: 'RISET & IDE' },
     { name: 'Riset Produk', href: '/site/tools/riset-produk', icon: <Search size={20} />, badge: 'HOT', isFree: true },
-    { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: true }, // FREE
-    { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: true }, // FREE
+    { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: true },
+    { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: true },
     
-    // KELOMPOK PREMIUM (LOCK)
-    { name: 'Landing Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false }, // PREMIUM
-    { name: 'Audit Funnel', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, isFree: false }, // PREMIUM
-    { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false }, // PREMIUM
+    { section: 'VISUAL & AUDIT (AI)' },
+    { name: 'Ad Reviewer', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, badge: 'NEW', isFree: false },
+    { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },
+    { name: 'Landing Builder', href: '/site/tools/landing-page', icon: <LayoutTemplate size={20} />, badge: 'HOT', isFree: false },
     
-    { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: true }, // FREE
+    { section: 'FINANSIAL' },
+    { name: 'Kalkulator Ads', href: '/site/tools/kalkulator-ads', icon: <Calculator size={20} />, isFree: true },
+    
     { section: 'COMING SOON' },
     { name: 'Generate Gambar', href: '#', icon: <ImageIcon size={20} />, disabled: true, badge: 'SOON', isFree: false },
   ];
@@ -61,16 +60,13 @@ export default function DashboardLayout({ children }) {
   if (userData?.role === 'admin') {
     rawMenuItems.push(
       { section: 'ADMINISTRATOR' },
-      { name: 'Admin Panel', href: '/site/admin', icon: <ShieldCheck size={20} />, adminOnly: true, isFree: true }
+      { name: 'Admin Panel', href: '/site/admin/tools', icon: <ShieldCheck size={20} />, adminOnly: true, isFree: true }
     );
   }
 
   const handleMenuClick = (e, item) => {
-    if (item.disabled) {
-      e.preventDefault();
-      return;
-    }
-    // Logika Akses: Jika tidak free DAN user bukan premium DAN bukan admin -> Redirek ke Topup
+    if (item.disabled) { e.preventDefault(); return; }
+    // Logic Lock: Redirect ke Topup jika belum premium
     if (!item.isFree && !userData?.isPremium && userData?.role !== 'admin') {
       e.preventDefault(); 
       router.push('/site/topup'); 
@@ -84,23 +80,31 @@ export default function DashboardLayout({ children }) {
   };
 
   return (
-    <div className={`min-h-screen bg-slate-50 flex ${poppins.className} tracking-tighter`}>
+    <div className={`min-h-screen bg-[#F8FAFC] flex ${poppins.className} tracking-tighter`}>
       
-      {/* MOBILE HEADER */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-100 z-[60] flex items-center justify-between px-4 shadow-sm">
+      {/* --- MOBILE HEADER --- */}
+      <header className="md:hidden fixed top-0 left-0 right-0 h-20 z-[60] px-5 flex items-center justify-between transition-all bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        
+        {/* LOGO (Desain Lama - Simple) */}
         <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1.5 rounded-lg">
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm">
               <Zap className="w-4 h-4 text-white fill-white" />
             </div>
             <span className="text-sm font-[900] text-slate-900 uppercase">JITU <span className="text-blue-600">DIGITAL</span></span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
             <NotificationBell /> 
+            
+            {/* TOMBOL MENU (Desain Baru - Pill Shape) */}
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)}
-                className="p-2 bg-slate-50 rounded-xl text-slate-600 active:scale-90 transition-all"
+                className="flex items-center gap-2 pl-4 pr-2 py-2 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/20 active:scale-95 transition-all group border border-slate-800"
             >
-                {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                <span className="text-[10px] font-black tracking-widest group-hover:text-blue-200 transition-colors">MENU</span>
+                <div className="bg-white/20 p-1 rounded-full">
+                    {isSidebarOpen ? <X size={14} /> : <Menu size={14} />}
+                </div>
             </button>
         </div>
       </header>
@@ -108,36 +112,36 @@ export default function DashboardLayout({ children }) {
       {/* BACKDROP */}
       {isSidebarOpen && (
         <div 
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[45] md:hidden"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[45] md:hidden animate-in fade-in duration-300"
             onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* SIDEBAR */}
+      {/* --- SIDEBAR --- */}
       <aside className={`
-        w-72 md:w-64 bg-white border-r border-slate-100 fixed h-full z-50 flex flex-col transition-transform duration-300 ease-in-out
+        w-72 bg-white border-r border-slate-100 fixed h-full z-50 flex flex-col transition-transform duration-500 cubic-bezier(0.32, 0.72, 0, 1) shadow-2xl md:shadow-none
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         
-        {/* LOGO */}
-        <div className="h-16 hidden md:flex items-center justify-between px-5 border-b border-slate-50 shrink-0">
+        {/* LOGO DESKTOP (Desain Lama - Simple) */}
+        <div className="h-20 hidden md:flex items-center justify-between px-5 border-b border-slate-50 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-1 rounded-lg shadow-md">
-              <Zap className="w-3.5 h-3.5 text-white fill-white" />
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-md">
+              <Zap className="w-4 h-4 text-white fill-white" />
             </div>
             <span className="text-lg font-[900] text-slate-900 uppercase">JITU <span className="text-blue-600">DIGITAL</span></span>
           </div>
           <NotificationBell />
         </div>
 
-        {/* MOBILE HEADER INSIDE */}
-        <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-slate-50 shrink-0 bg-slate-50">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Navigation Menu</span>
-            <button onClick={() => setSidebarOpen(false)} className="p-1 text-slate-400"><X size={20}/></button>
+        {/* MOBILE HEADER INSIDE SIDEBAR */}
+        <div className="md:hidden h-20 flex items-center justify-between px-6 border-b border-slate-50 shrink-0 bg-slate-50/50">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Main Navigation</span>
+            <button onClick={() => setSidebarOpen(false)} className="p-2 bg-white rounded-full shadow-sm text-rose-500 hover:bg-rose-50"><X size={18}/></button>
         </div>
 
-        {/* SALDO WIDGET */}
-        <div className="px-4 md:px-3 pt-6 md:pt-4 pb-2 shrink-0">
+        {/* WIDGET SALDO (Desain Lama - Dark Card) */}
+        <div className="px-4 pt-6 pb-2 shrink-0">
           <div className={`rounded-2xl p-5 md:p-4 relative overflow-hidden group shadow-lg border transition-all duration-500 
             ${userData?.isPremium 
                 ? 'bg-gradient-to-br from-indigo-900 via-slate-900 to-blue-900 border-blue-400/30 ring-1 ring-blue-500/20' 
@@ -169,13 +173,15 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
 
-        {/* MENU */}
-        <nav className="flex-1 overflow-y-auto px-3 md:px-2 space-y-1 mt-2 pb-10 custom-scrollbar">
+        {/* LIST MENU */}
+        <nav className="flex-1 overflow-y-auto px-3 space-y-1 mt-4 pb-10 custom-scrollbar">
           {rawMenuItems.map((item, index) => {
             if (item.section) {
               return (
                 <div key={index} className="px-3 pt-5 pb-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{item.section}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+                      {item.section} <span className="h-[1px] flex-1 bg-slate-100"></span>
+                  </p>
                 </div>
               );
             }
@@ -207,24 +213,29 @@ export default function DashboardLayout({ children }) {
                   <span className="flex-1 tracking-tight text-[13px]">{item.name}</span>
                 </div>
 
-                {/* --- BADGE LOGIC PREMIUM --- */}
+                {/* --- BADGES KEREN --- */}
                 {isLocked ? (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 shadow-sm shadow-indigo-200 group-hover:shadow-indigo-400/30 transition-shadow">
-                        <LockKeyhole size={10} className="text-white" strokeWidth={2.5} />
-                        <span className="text-[9px] font-[900] text-white uppercase tracking-wider">Unlock</span>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 shadow-sm shadow-fuchsia-200 group-hover:shadow-fuchsia-400/40 transition-all border border-white/20">
+                        <Lock size={10} className="text-white" strokeWidth={2.5} />
+                        <span className="text-[9px] font-[900] text-white uppercase tracking-wider">UNLOCK</span>
                     </div>
                 ) : (
                     <>
                         {item.badge === 'HOT' && (
-                            <div className="relative flex items-center justify-center mr-1">
-                                <div className="absolute inset-0 bg-orange-500/20 blur-[4px] rounded-full animate-pulse"></div>
-                                <Flame size={16} className="text-orange-500 fill-orange-500 relative z-10" />
+                            <div className="relative flex items-center justify-center mr-1" title="Lagi Rame!">
+                                <div className="absolute inset-0 bg-orange-500/20 blur-[6px] rounded-full animate-pulse"></div>
+                                <Flame size={18} className="text-orange-500 fill-orange-500 relative z-10 animate-[bounce_2s_infinite]" />
+                            </div>
+                        )}
+                        {item.badge === 'NEW' && (
+                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-600 shadow-sm">
+                                <Sparkles size={10} fill="currentColor" />
+                                <span className="text-[8px] font-black uppercase tracking-wider">NEW</span>
                             </div>
                         )}
                         {item.badge === 'SOON' && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-                                <span className="text-[8px] font-[800] uppercase tracking-wider">SOON</span>
+                            <div className="px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-wider">
+                                SOON
                             </div>
                         )}
                     </>
@@ -235,9 +246,9 @@ export default function DashboardLayout({ children }) {
         </nav>
 
         {/* FOOTER */}
-        <div className="p-3 border-t border-slate-100 shrink-0 space-y-1 bg-white">
+        <div className="p-4 border-t border-slate-100 shrink-0 bg-white space-y-2">
            <Link href="/site/profile" className={`flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all ${pathname === '/site/profile' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}>
-              <Settings size={18} className="text-slate-400" /> Profil
+              <Settings size={18} className="text-slate-400" /> Profil Saya
            </Link>
            
            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-4 py-3 md:px-3 md:py-2.5 text-xs font-bold uppercase tracking-wider text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
@@ -246,9 +257,9 @@ export default function DashboardLayout({ children }) {
         </div>
       </aside>
 
-      {/* CONTENT */}
-      <div className={`flex-1 w-full transition-all duration-300 md:ml-64`}>
-        <main className="pt-20 md:pt-8 p-4 md:p-8 max-w-7xl mx-auto leading-tight min-h-screen">
+      {/* MAIN CONTENT AREA */}
+      <div className={`flex-1 w-full transition-all duration-500 md:ml-72`}>
+        <main className="pt-24 md:pt-8 p-4 md:p-8 max-w-7xl mx-auto leading-tight min-h-screen">
             {children}
         </main>
       </div>

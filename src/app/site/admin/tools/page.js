@@ -1,26 +1,51 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation'; // Tambah ini
+import { useRouter } from 'next/navigation';
 import { 
-  Save, Power, Wallet, Loader2, Search, Check, 
-  ChevronDown, Calculator, Database, Trash2, 
-  Zap, X, Cpu, Eye, Image as ImageIcon, MessageSquareText, ShieldAlert 
+  Save, Power, Loader2, Search, Check, 
+  ChevronDown, Calculator, Database, Zap, 
+  Image as ImageIcon, MessageSquare, Brain, Eye, Code,
+  DollarSign
 } from 'lucide-react';
 
-// ... (Kode Helper getModelCapability & AIModelSelect TETAP SAMA, jangan dihapus) ...
-const getModelCapability = (modelId) => {
+// --- 1. HELPER: DETEKSI KATEGORI MODEL ---
+const getModelCategory = (modelId) => {
+  if(!modelId) return { label: 'TEXT', icon: <MessageSquare size={10} />, style: 'bg-slate-100 text-slate-500 border-slate-200' };
+  
   const id = modelId.toLowerCase();
-  if (id.includes('dall-e') || id.includes('flux') || id.includes('stable-diffusion')) return { label: 'IMG GEN', icon: <ImageIcon size={10} />, style: 'bg-purple-50 text-purple-600 border-purple-200' };
-  if (id.includes('gpt-4o') || id.includes('claude-3-5') || id.includes('gemini') || id.includes('vision')) return { label: 'VISION', icon: <Eye size={10} />, style: 'bg-emerald-50 text-emerald-600 border-emerald-200' };
-  return { label: 'TEXT', icon: <MessageSquareText size={10} />, style: 'bg-slate-100 text-slate-500 border-slate-200' };
+  
+  if (id.includes('dall-e') || id.includes('flux') || id.includes('stable') || id.includes('midjourney')) {
+    return { label: 'IMAGE', desc: 'Visual Generator', icon: <ImageIcon size={10} />, style: 'bg-purple-100 text-purple-700 border-purple-200' };
+  }
+  if (id.includes('gpt-4o') || id.includes('claude-3-5') || id.includes('gemini') || id.includes('vision')) {
+    return { label: 'VISION', desc: 'Smart & Multimodal', icon: <Eye size={10} />, style: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
+  }
+  if (id.includes('deepseek') || id.includes('coder') || id.includes('qwen') || id.includes('sonnet')) {
+    return { label: 'LOGIC', desc: 'Coding & Complex Task', icon: <Code size={10} />, style: 'bg-indigo-100 text-indigo-700 border-indigo-200' };
+  }
+  if (id.includes('mini') || id.includes('flash') || id.includes('haiku') || id.includes('llama-3-8b')) {
+    return { label: 'FAST', desc: 'Cheap & Fast', icon: <Zap size={10} />, style: 'bg-amber-100 text-amber-700 border-amber-200' };
+  }
+
+  return { label: 'GEN', desc: 'General LLM', icon: <Brain size={10} />, style: 'bg-blue-50 text-blue-600 border-blue-100' };
 };
 
-function AIModelSelect({ options, value, onChange, loading }) {
+// --- 2. DROPDOWN COMPONENT (POP OUT FIX) ---
+function AIModelSelect({ options = [], value, onChange, loading }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef(null);
-  const selectedModel = options.find(o => o.id === value);
-  const filteredOptions = options.filter(option => option.name.toLowerCase().includes(search.toLowerCase()) || option.id.toLowerCase().includes(search.toLowerCase()));
+  const searchInputRef = useRef(null);
+  
+  const safeOptions = Array.isArray(options) ? options : [];
+  const selectedModel = safeOptions.find(o => o.id === value);
+  const categoryInfo = selectedModel ? getModelCategory(selectedModel.id) : null;
+  
+  // Filter Logic (Limit 50 hasil)
+  const filteredOptions = safeOptions.filter(option => 
+    (option.name || "").toLowerCase().includes(search.toLowerCase()) || 
+    (option.id || "").toLowerCase().includes(search.toLowerCase())
+  ).slice(0, 50);
 
   useEffect(() => {
     function handleClickOutside(e) { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsOpen(false); }
@@ -28,36 +53,114 @@ function AIModelSelect({ options, value, onChange, loading }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Auto focus search saat dibuka
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+        setTimeout(() => searchInputRef.current.focus(), 100);
+    }
+  }, [isOpen]);
+
   return (
     <div className="relative w-full font-poppins" ref={dropdownRef}>
-      <button onClick={() => !loading && setIsOpen(!isOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 border transition-all ${isOpen ? 'border-blue-500 bg-white ring-2 ring-blue-500/10' : 'border-slate-200 hover:border-slate-300'}`}>
-        <div className="flex flex-col text-left overflow-hidden w-full mr-2">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Model AI Engine</span>
-          <div className="flex items-center gap-2 overflow-hidden">
+      {/* TRIGGER BUTTON */}
+      <button 
+        onClick={() => !loading && setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-3 py-3 rounded-xl bg-slate-50 border transition-all text-left group relative ${isOpen ? 'border-blue-500 bg-white ring-2 ring-blue-500/10 z-20' : 'border-slate-200 hover:border-blue-300'}`}
+      >
+        <div className="flex flex-col w-full mr-2 overflow-hidden">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between">
+              Model AI Engine
+              {categoryInfo && <span className="text-[8px] font-normal normal-case text-emerald-600">{categoryInfo.desc}</span>}
+          </span>
+          
+          <div className="flex items-start gap-2">
             {selectedModel ? (
                <>
-                 <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase tracking-wider shrink-0 ${getModelCapability(selectedModel.id).style}`}>{getModelCapability(selectedModel.id).icon}{getModelCapability(selectedModel.id).label}</div>
-                 <span className="text-[11px] font-bold text-slate-700 truncate">{selectedModel.name}</span>
+                 <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase tracking-wider shrink-0 mt-0.5 ${categoryInfo.style}`}>
+                    {categoryInfo.icon}
+                    {categoryInfo.label}
+                 </div>
+                 <div className="flex flex-col min-w-0">
+                     <span className="text-[11px] font-bold text-slate-700 leading-tight truncate">{selectedModel.name}</span>
+                     <span className="text-[9px] text-slate-400 font-mono leading-tight truncate">{selectedModel.id}</span>
+                 </div>
                </>
-            ) : (<span className="text-[11px] font-bold text-slate-400">{loading ? "Menghubungkan..." : "Pilih Model"}</span>)}
+            ) : (
+               <span className="text-[11px] font-bold text-slate-400 italic flex items-center gap-2">
+                 {loading ? <Loader2 size={12} className="animate-spin"/> : <Search size={12}/>}
+                 {loading ? "Syncing..." : "Pilih Model..."}
+               </span>
+            )}
           </div>
         </div>
-        <ChevronDown size={16} className={`text-slate-400 shrink-0 ${isOpen ? 'rotate-180' : ''} transition-transform duration-300`} />
+        <ChevronDown size={16} className={`text-slate-400 shrink-0 ${isOpen ? 'rotate-180 text-blue-500' : ''} transition-transform duration-300 group-hover:text-blue-500`} />
       </button>
+
+      {/* DROPDOWN MENU (POP OUT - Z-INDEX TINGGI) */}
       {isOpen && (
-        <div className="absolute z-[100] left-0 right-0 bottom-full mb-2 bg-white border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="p-2 border-b border-slate-100 bg-slate-50">
+        <div className="absolute z-[9999] top-full left-1/2 -translate-x-1/2 mt-2 w-[110%] bg-white border border-slate-200 shadow-2xl rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ring-1 ring-black/5"> 
+          
+          {/* 1. SEARCH INPUT (STICKY TOP) */}
+          <div className="p-3 border-b border-slate-100 bg-slate-50 relative">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" /><input autoFocus type="text" placeholder="Cari engine..." className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold outline-none focus:border-blue-500 uppercase text-slate-600 placeholder:normal-case" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                ref={searchInputRef}
+                type="text" 
+                placeholder="Cari model..." 
+                className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder:font-normal placeholder:text-slate-400"
+                value={search} 
+                onChange={(e) => setSearch(e.target.value)} 
+              />
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
-            {filteredOptions.map((option) => (
-                <div key={option.id} onClick={() => { onChange(option.id); setIsOpen(false); setSearch(""); }} className={`p-2.5 rounded-xl cursor-pointer flex justify-between items-center transition-all ${option.id === value ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}>
-                    <div className="flex flex-col gap-1 min-w-0"><div className="flex items-center gap-2"><span className={`text-[10px] font-bold truncate ${option.id === value ? 'text-blue-700' : 'text-slate-700'}`}>{option.name}</span></div><span className="text-[9px] font-medium text-slate-400 pl-1">{option.id}</span></div>
-                    {option.id === value && <Check size={14} className="text-blue-600" />}
+
+          {/* 2. LIST OPTIONS */}
+          <div className="max-h-[300px] overflow-y-auto p-2 space-y-1 custom-scrollbar bg-white">
+            {filteredOptions.length === 0 ? (
+                <div className="p-6 text-center">
+                    <p className="text-[10px] text-slate-400 font-medium">Model tidak ditemukan.</p>
                 </div>
-            ))}
+            ) : (
+                filteredOptions.map((option) => {
+                    const cat = getModelCategory(option.id);
+                    const isSelected = option.id === value;
+                    return (
+                        <div 
+                            key={option.id} 
+                            onClick={() => { onChange(option.id); setIsOpen(false); setSearch(""); }} 
+                            className={`p-3 rounded-lg cursor-pointer flex gap-3 items-start transition-all group ${isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}
+                        >
+                            {/* Icon Kategori */}
+                            <div className={`mt-0.5 px-1.5 py-1 rounded text-[8px] font-black border uppercase h-fit ${cat.style}`}>
+                                {cat.label}
+                            </div>
+                            
+                            {/* Info Model (FULL NAME WRAPPING) */}
+                            <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-bold text-slate-800 leading-snug break-words whitespace-normal mb-1">
+                                    {option.name}
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono break-all leading-tight">
+                                    {option.id}
+                                </div>
+                                {/* Harga */}
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">
+                                        In: <span className="font-bold text-slate-700">{option.perTokenPrompt ? `$${option.perTokenPrompt}/1k` : '-'}</span>
+                                    </span>
+                                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">
+                                        Out: <span className="font-bold text-slate-700">{option.perTokenCompletion ? `$${option.perTokenCompletion}/1k` : '-'}</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Check Icon */}
+                            {isSelected && <div className="mt-1"><Check size={14} className="text-blue-600" /></div>}
+                        </div>
+                    );
+                })
+            )}
           </div>
         </div>
       )}
@@ -65,60 +168,56 @@ function AIModelSelect({ options, value, onChange, loading }) {
   );
 }
 
-// --- HALAMAN UTAMA ---
-export default function ToolConfigPage() {
-  const router = useRouter(); // Init Router
+// --- 3. MAIN PAGE ---
+export default function ToolConfig() {
+  const router = useRouter();
   const [tools, setTools] = useState([]);
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [authChecking, setAuthChecking] = useState(true); // State cek admin
+  const [authChecking, setAuthChecking] = useState(true);
   
-  // Simulator State
+  // Profit Simulator State
   const [packagePrice, setPackagePrice] = useState(100000); 
   const [packagePoints, setPackagePoints] = useState(10000); 
   const pricePerPoint = packagePoints > 0 ? packagePrice / packagePoints : 0;
 
-  // 1. CEK STATUS ADMIN DULU
   useEffect(() => {
+    // Cek Session Admin
     const checkAdmin = async () => {
         try {
             const res = await fetch('/api/user/me');
             const data = await res.json();
-            
             if (data.user && data.user.role === 'admin') {
-                setAuthChecking(false); // Lolos
-                fetchData(); // Baru ambil data tools
+                setAuthChecking(false);
+                fetchData();
             } else {
-                router.push('/site/dashboard'); // Tendang ke dashboard
+                router.push('/site/dashboard');
             }
-        } catch (e) {
-            router.push('/login');
-        }
+        } catch (e) { router.push('/login'); }
     };
     checkAdmin();
+    
+    // Load Simulator Config
+    const savedSim = localStorage.getItem('JITU_ADMIN_SIMULATOR');
+    if(savedSim) {
+        try {
+            const parsed = JSON.parse(savedSim);
+            setPackagePrice(parsed.price);
+            setPackagePoints(parsed.points);
+        } catch(e){}
+    }
   }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [tRes, mRes] = await Promise.all([
-          fetch('/api/admin/tools'), 
-          fetch('/api/admin/models')
+          fetch('/api/admin/tools').then(r => r.ok ? r.json() : []), 
+          fetch('/api/admin/models').then(r => r.ok ? r.json() : [])
       ]);
-      
-      if(!tRes.ok || !mRes.ok) throw new Error("Gagal akses API Admin");
-
-      const toolsData = await tRes.json();
-      const modelsData = await mRes.json();
-
-      setTools(Array.isArray(toolsData) ? toolsData : []);
-      setModels(Array.isArray(modelsData) ? modelsData : []);
-    } catch (err) { 
-        console.error("Gagal load data:", err); 
-        alert("Gagal memuat data Admin. Pastikan Anda memiliki akses.");
-    } finally { 
-        setLoading(false); 
-    }
+      setTools(Array.isArray(tRes) ? tRes : []);
+      setModels(Array.isArray(mRes) ? mRes : []);
+    } catch (err) { console.error("Error fetching data"); } finally { setLoading(false); }
   };
 
   const handleChange = (index, field, value) => {
@@ -127,7 +226,7 @@ export default function ToolConfigPage() {
     setTools(newTools);
   };
 
-  const handleSave = async (tool, currentHpp) => {
+  const handleSaveTool = async (tool, currentHpp) => {
     try {
       const res = await fetch('/api/admin/tools', {
         method: 'PUT',
@@ -140,105 +239,169 @@ export default function ToolConfigPage() {
             costPerToken: currentHpp 
         }),
       });
-      if (res.ok) alert(`✅ Konfigurasi "${tool.name}" berhasil disimpan!`);
+      if (res.ok) alert(`✅ Setting ${tool.name} tersimpan!`);
     } catch (err) { alert("Gagal Simpan"); }
   };
 
-  // --- TAMPILAN LOADING ---
+  const handleSaveSimulator = () => {
+      localStorage.setItem('JITU_ADMIN_SIMULATOR', JSON.stringify({ price: packagePrice, points: packagePoints }));
+      alert("✅ Setting Profit Simulator tersimpan di sesi browser.");
+  };
+
+  // Kalkulasi Margin Real-time
+  const calculateMargin = (tool) => {
+    const revenue = (parseInt(tool.creditCost) || 0) * pricePerPoint;
+    const modelData = models.find(m => m.id === tool.aiModel);
+    const KURS = 16200; 
+    let hpp = 0;
+    
+    if (modelData) {
+        const isImage = getModelCategory(modelData.id).label === 'IMAGE';
+        if (isImage) {
+            hpp = (modelData.perTokenPrompt || 0.04) * KURS; 
+        } else {
+            const promptCost = modelData.perTokenPrompt || 0;
+            const compCost = modelData.perTokenCompletion || 0;
+            hpp = ((1000 * promptCost) + (1000 * compCost)) * KURS;
+        }
+    }
+    const profit = revenue - hpp;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { hpp, profit, margin };
+  };
+
   if (authChecking || loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center font-poppins">
-        {authChecking ? (
-            <>
-                <ShieldAlert className="text-slate-300 w-12 h-12 mb-4 animate-pulse" />
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Verifikasi Izin Administrator...</p>
-            </>
-        ) : (
-            <>
-                <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sinkronisasi Ekonomi Digital...</p>
-            </>
-        )}
+    <div className="min-h-screen flex flex-col items-center justify-center font-poppins bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600 mb-4" size={32} />
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{authChecking ? 'Memeriksa Akses...' : 'Sinkronisasi OpenRouter...'}</p>
     </div>
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20 px-4 mt-8 font-poppins antialiased text-slate-900">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20 px-4 mt-8 font-poppins text-slate-900">
       
       {/* HEADER */}
-      <div className="flex justify-between items-center border-b border-slate-100 pb-6">
+      <div className="flex justify-between items-center border-b border-slate-200 pb-6">
         <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Control <span className="text-blue-600">Tools</span></h1>
-            <p className="text-[10px] font-normal text-slate-400 uppercase tracking-[0.2em] mt-1">Manajemen Ekonomi & AI Jitu Digital</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Admin Dashboard • Live Sync OpenRouter</p>
         </div>
-        <button onClick={fetchData} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm active:scale-95">
-            <Database size={20} />
+        <button onClick={fetchData} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 transition-all shadow-sm group active:scale-95">
+            <Database size={20} className="group-hover:animate-pulse" />
         </button>
       </div>
 
-      {/* SIMULATOR CARD */}
-      <div className="bg-[#0F172A] p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-center gap-10 border border-slate-800">
-        <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none -rotate-12"><Cpu size={180} /></div>
-        <div className="flex items-center gap-5 relative z-10 w-full md:w-auto">
-            <div className="bg-blue-600 p-4 rounded-2xl shadow-xl shadow-blue-500/20"><Calculator size={24} /></div>
-            <div className="space-y-1">
-                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block">Profit Simulator</span>
-                <h3 className="text-xl font-bold tracking-tight">HPP Poin Member: <span className="text-emerald-400 font-black">Rp {pricePerPoint.toFixed(2)}</span></h3>
+      {/* PROFIT SIMULATOR (WITH SAVE BUTTON) */}
+      <div className="bg-slate-900 p-6 md:p-8 rounded-[2rem] text-white shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative overflow-hidden">
+        {/* Dekorasi Background */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+
+        <div className="flex items-center gap-4 z-10">
+            <div className="bg-blue-600 p-3.5 rounded-2xl shadow-lg shadow-blue-900/50"><Calculator size={28} /></div>
+            <div>
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-1">Profit Simulator</span>
+                <h3 className="text-2xl font-black tracking-tight">HPP Poin: <span className="text-emerald-400">Rp {pricePerPoint.toFixed(2)}</span></h3>
             </div>
         </div>
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-md w-full md:w-auto">
-            <div className="flex flex-col px-4 w-full md:w-auto">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Harga Paket (Rp)</span>
-                <input type="number" value={packagePrice} onChange={(e) => setPackagePrice(Number(e.target.value))} className="bg-transparent text-lg font-black w-full md:w-32 outline-none text-white focus:text-blue-400 transition-colors placeholder-white/20" />
+
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto z-10 items-end">
+            <div className="w-full sm:w-auto">
+                <span className="text-[9px] block text-slate-400 uppercase mb-1 font-bold">Harga Paket (Rp)</span>
+                <div className="relative">
+                    <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
+                    <input type="number" value={packagePrice} onChange={(e)=>setPackagePrice(Number(e.target.value))} className="bg-white/10 border border-white/10 focus:border-blue-500 pl-9 pr-4 py-2.5 rounded-xl w-full sm:w-40 font-bold text-white outline-none transition-all"/>
+                </div>
             </div>
-            <div className="hidden md:block w-px h-10 bg-white/10" />
-            <div className="flex flex-col px-4 text-right w-full md:w-auto border-t md:border-t-0 border-white/10 pt-2 md:pt-0 mt-2 md:mt-0">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Jumlah Poin</span>
-                <input type="number" value={packagePoints} onChange={(e) => setPackagePoints(Number(e.target.value))} className="bg-transparent text-lg font-black w-full md:w-24 outline-none text-white focus:text-blue-400 text-right placeholder-white/20" />
+            <div className="w-full sm:w-auto">
+                <span className="text-[9px] block text-slate-400 uppercase mb-1 font-bold">Total Poin</span>
+                <div className="relative">
+                    <Zap size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"/>
+                    <input type="number" value={packagePoints} onChange={(e)=>setPackagePoints(Number(e.target.value))} className="bg-white/10 border border-white/10 focus:border-blue-500 pl-9 pr-4 py-2.5 rounded-xl w-full sm:w-32 font-bold text-white outline-none transition-all text-right"/>
+                </div>
             </div>
+            <button onClick={handleSaveSimulator} className="p-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all" title="Simpan Setting Simulator">
+                <Save size={18} fill="currentColor" className="text-emerald-900"/>
+            </button>
         </div>
       </div>
 
-      {/* TOOLS GRID */}
+      {/* TOOLS GRID - FIXED OVERFLOW FOR DROPDOWN */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tools.map((tool, index) => {
           const { hpp, profit, margin } = calculateMargin(tool);
-          const isProfitable = profit > 0;
           return (
-            <div key={tool._id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 flex flex-col overflow-hidden hover:border-blue-200 transition-all group hover:-translate-y-1 duration-300">
-              <div className="p-7 flex justify-between items-start border-b border-slate-50 gap-4">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-colors ${tool.isActive ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400 grayscale'}`}>
-                        <Zap size={20} fill={tool.isActive ? "currentColor" : "none"} />
+            // PERUBAHAN UTAMA DI SINI: TIDAK ADA overflow-hidden AGAR DROPDOWN MUNCUL
+            <div key={tool._id || index} className={`bg-white rounded-[2rem] border shadow-sm p-6 flex flex-col gap-5 group transition-all duration-300 relative ${tool.isActive ? 'border-slate-200 hover:border-blue-300 hover:shadow-md' : 'border-slate-100 opacity-75 grayscale hover:grayscale-0'}`}>
+                
+                {/* Header Card */}
+                <div className="flex items-center gap-4 relative z-10">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${tool.isActive ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-100 text-slate-400'}`}>
+                        <Zap size={20} fill={tool.isActive ? "currentColor" : "none"}/>
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <h3 className="text-[14px] font-black text-slate-900 leading-snug uppercase line-clamp-2 min-h-[40px] tracking-tight">{tool.name}</h3>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mt-1.5">{tool.slug}</span>
-                    </div>
-                </div>
-              </div>
-              <div className="p-7 py-5 grid grid-cols-2 gap-3 bg-slate-50/50">
-                <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex flex-col shadow-sm">
-                    <div className="flex items-center gap-1.5 mb-1"><span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Est. Cost</span></div>
-                    <span className="text-xs font-black text-slate-700 font-mono tracking-tight">Rp {hpp.toFixed(1)}</span>
-                </div>
-                <div className={`p-3.5 rounded-2xl border flex flex-col shadow-sm ${isProfitable ? 'bg-emerald-50/50 border-emerald-100' : 'bg-rose-50/50 border-rose-100'}`}>
-                    <div className="flex items-center gap-1.5 mb-1"><span className={`text-[9px] font-bold uppercase tracking-widest ${isProfitable ? 'text-emerald-400' : 'text-rose-400'}`}>Margin {Math.round(margin)}%</span></div>
-                    <span className={`text-xs font-black ${isProfitable ? 'text-emerald-600' : 'text-rose-600'} font-mono tracking-tight`}>{profit > 0 ? '+' : ''}Rp {Math.round(profit).toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="p-7 space-y-6 flex-1 flex flex-col">
-                <div className="space-y-4">
                     <div>
-                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2 ml-1 text-left flex items-center gap-2"><Wallet size={12} /> Harga Jual (Poin)</label>
-                        <input type="number" value={tool.creditCost} onChange={(e) => handleChange(index, 'creditCost', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all shadow-inner placeholder-slate-300" />
+                        <h3 className="font-black text-sm uppercase tracking-tight text-slate-800">{tool.name}</h3>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{tool.slug}</span>
                     </div>
-                    <AIModelSelect options={models} value={tool.aiModel} loading={false} onChange={(val) => handleChange(index, 'aiModel', val)} />
                 </div>
-                <div className="pt-2 mt-auto flex gap-3">
-                    <button onClick={() => handleChange(index, 'isActive', !tool.isActive)} className={`w-12 h-12 rounded-2xl border-2 font-bold transition-all flex items-center justify-center shadow-lg active:scale-95 ${tool.isActive ? 'bg-white border-slate-100 text-slate-300 hover:text-rose-500 hover:border-rose-100' : 'bg-slate-800 border-slate-800 text-white hover:bg-slate-900'}`}><Power size={18} /></button>
-                    <button onClick={() => handleSave(tool, hpp)} className="flex-1 h-12 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 active:scale-95 flex items-center justify-center gap-2"><Save size={16} /> Simpan Config</button>
+                
+                {/* Margin Calculator */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100 relative z-10">
+                    <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">HPP (Est.)</span>
+                        <span className="font-mono text-xs font-bold text-slate-600">Rp {hpp.toFixed(0)}</span>
+                    </div>
+                    <div className="text-right">
+                        <span className={`text-[9px] font-bold uppercase block mb-0.5 ${profit > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>Margin {margin.toFixed(0)}%</span>
+                        <span className={`font-mono text-sm font-black ${profit > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {profit > 0 ? '+' : ''}Rp {Math.round(profit)}
+                        </span>
+                    </div>
                 </div>
-              </div>
+
+                {/* Form Controls */}
+                <div className="space-y-4 relative z-20">
+                    <div>
+                        <label className="text-[9px] font-bold text-slate-400 uppercase mb-1.5 flex justify-between">
+                            Harga Jual
+                            <span className="text-blue-500">{(tool.creditCost * pricePerPoint).toFixed(0)} IDR</span>
+                        </label>
+                        <div className="relative">
+                            <Zap size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                            <input 
+                                type="number" 
+                                value={tool.creditCost} 
+                                onChange={(e)=>handleChange(index, 'creditCost', e.target.value)} 
+                                className="w-full pl-9 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">PTS</span>
+                        </div>
+                    </div>
+                    
+                    {/* DROPDOWN AI MODEL */}
+                    <AIModelSelect 
+                        options={models} 
+                        value={tool.aiModel} 
+                        onChange={(val)=>handleChange(index, 'aiModel', val)} 
+                        loading={models.length === 0}
+                    />
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex gap-2 pt-2 mt-auto relative z-10">
+                    <button 
+                        onClick={()=>handleChange(index, 'isActive', !tool.isActive)} 
+                        className={`p-3.5 rounded-xl border-2 transition-all active:scale-95 ${tool.isActive ? 'border-slate-100 text-slate-400 hover:border-rose-200 hover:text-rose-500 hover:bg-rose-50' : 'bg-slate-800 border-slate-800 text-white shadow-lg'}`}
+                        title={tool.isActive ? "Matikan Tool" : "Aktifkan Tool"}
+                    >
+                        <Power size={18}/>
+                    </button>
+                    <button 
+                        onClick={()=>handleSaveTool(tool, hpp)} 
+                        className="flex-1 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    >
+                        <Save size={14}/> SIMPAN PERUBAHAN
+                    </button>
+                </div>
             </div>
           );
         })}

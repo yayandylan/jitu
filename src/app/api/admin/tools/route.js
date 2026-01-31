@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import connectDB from '@/lib/db';
 import ToolConfig from '@/models/ToolConfig';
-import User from '@/models/User'; // Tambahan: Untuk validasi role realtime
+import User from '@/models/User';
 
-export const dynamic = 'force-dynamic'; // Mencegah caching data admin
+// Mencegah Next.js melakukan caching statis pada API Admin
+export const dynamic = 'force-dynamic'; 
 
 // --- MIDDLEWARE INTERNAL: CEK ADMIN ---
 async function isAdminAuthorized() {
@@ -17,7 +18,7 @@ async function isAdminAuthorized() {
     // 1. Cek dari Token (Cepat)
     if (decoded.role === 'admin') return true;
 
-    // 2. Cek ke Database (Aman - jika baru diupdate via Compass)
+    // 2. Cek ke Database (Aman - jika role baru diupdate via database langsung)
     await connectDB();
     const user = await User.findById(decoded.userId);
     return user && user.role === 'admin';
@@ -35,7 +36,7 @@ export async function GET() {
 
   try {
     await connectDB();
-    // Sort berdasarkan category dulu (jika ada), baru nama
+    // Sort agar urutan tool rapi (A-Z)
     const tools = await ToolConfig.find({}).sort({ category: 1, name: 1 });
     return NextResponse.json(tools);
   } catch (error) {
@@ -43,26 +44,29 @@ export async function GET() {
   }
 }
 
-// 2. [PUT] UPDATE KONFIGURASI
+// 2. [PUT] UPDATE KONFIGURASI (SAVE BUTTON)
 export async function PUT(req) {
   if (!(await isAdminAuthorized())) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
   }
 
   try {
+    // Ambil data yang dikirim frontend
     const { id, creditCost, aiModel, isActive, costPerToken } = await req.json();
+    
     await connectDB();
 
-    // Validasi harga tidak boleh negatif
-    const finalCreditCost = Math.max(0, parseInt(creditCost) || 0);
+    // Validasi Data
+    const finalCreditCost = Math.max(0, parseInt(creditCost) || 0); // Cegah minus
+    const finalIsActive = Boolean(isActive); // Pastikan Boolean
 
     const updatedTool = await ToolConfig.findByIdAndUpdate(
       id, 
       {
         creditCost: finalCreditCost,
-        aiModel,
-        isActive,
-        costPerToken: costPerToken || 0 
+        aiModel: aiModel,
+        isActive: finalIsActive, // <-- INI KUNCI TOMBOL POWER
+        costPerToken: parseFloat(costPerToken) || 0 
       },
       { new: true, runValidators: true }
     );
@@ -73,16 +77,17 @@ export async function PUT(req) {
 
     return NextResponse.json({ 
       success: true,
-      message: `Konfigurasi ${updatedTool.name} diperbarui!`,
+      message: `Konfigurasi ${updatedTool.name} berhasil disimpan!`,
       data: updatedTool
     });
 
   } catch (error) {
+    console.error("Update Error:", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
-// 3. [DELETE] HAPUS DATA (SOLUSI DATA DOBEL)
+// 3. [DELETE] HAPUS TOOL (JIKA ADA DUPLIKAT)
 export async function DELETE(req) {
   if (!(await isAdminAuthorized())) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
@@ -105,7 +110,7 @@ export async function DELETE(req) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Data ${deletedTool.name} berhasil dihapus permanen.` 
+      message: `Tool ${deletedTool.name} berhasil dihapus permanen.` 
     });
 
   } catch (error) {

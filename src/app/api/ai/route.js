@@ -331,6 +331,126 @@ export async function POST(req) {
     }
     
     // ==========================================
+    // F. AD REVIEW (AUDIT FUNNEL) - RENAMED
+    // ==========================================
+    else if (type === 'ad-review') { // <--- DIGANTI JADI 'ad-review'
+        
+        // Scrape dulu konten LP nya
+        let lpContent = "User tidak menyertakan link.";
+        if (data.landingPageUrl) {
+            lpContent = await fetchLandingPageContent(data.landingPageUrl);
+        }
+
+        systemPrompt = `
+        ${FORMATTING_INSTRUCTION}
+        
+        CONTEXT:
+        Kamu adalah "Jitu Ad Reviewer". Auditor Iklan & Landing Page senior. Tugasmu: Mencari penyebab iklan boncos (tidak konversi) dan memberikan nilai kelayakan.
+        
+        INPUT DATA:
+        1. **Ad Creative:** Caption/Script Iklan user.
+        2. **Landing Page:** Isi konten website user (sudah discrape).
+        3. **Platform:** ${data.platform}
+        
+        TUGAS AUDIT (Berikan Skor 0-100):
+        1. **Cek Keselarasan (Message Match):** Apakah janji di iklan SAMA dengan headline di LP? (Ini pembunuh konversi #1).
+        2. **Cek Hook Iklan:** Apakah captionnya membosankan?
+        3. **Cek Offer LP:** Apakah penawarannya meyakinkan?
+        
+        OUTPUT FORMAT (Markdown):
+        # 🩺 AD REVIEW REPORT
+        
+        ## SKOR KELAYAKAN: [X]/100
+        **Status:** [WINNING / POTENTIAL / BONCOS]
+        
+        ### 1. 📢 Review Iklan (Creative)
+        * **Hook:** [Komentar]
+        * **Copywriting:** [Komentar]
+        
+        ### 2. 🌐 Review Landing Page
+        * **Headline Match:** [Apakah nyambung dengan iklan?]
+        * **Flow & Offer:** [Komentar berdasarkan teks LP]
+        
+        ### 3. ⚠️ MASALAH UTAMA
+        [Sebutkan 1 kesalahan fatal yang bikin boncos]
+        
+        ### 4. 💡 REKOMENDASI PERBAIKAN
+        1. [Saran konkret 1]
+        2. [Saran konkret 2]
+        3. [Saran konkret 3]
+        `;
+        
+        firstUserMsg = `Tolong review iklan saya.
+        
+        DATA IKLAN:
+        - Platform: ${data.platform}
+        - Caption/Script: "${data.adCaption}"
+        - Visual Context: "${data.videoDescription || 'Tidak ada deskripsi visual'}"
+        
+        DATA LANDING PAGE:
+        - URL: ${data.landingPageUrl}
+        - ISI WEBSITE (Scraped Text): "${lpContent}"
+        
+        Apa yang salah? Kenapa konversi rendah?`;
+    }
+
+    // ==========================================
+    // G. KALKULATOR ADS (FINANCIAL FORECASTING)
+    // ==========================================
+    else if (type === 'kalkulator-ads') {
+        const { productPrice, cogs, adBudget, targetSales, expectedCpr } = data;
+
+        // Hitung manual di JS sedikit untuk validasi (opsional), tapi biar AI yang jelaskan detailnya
+        
+        systemPrompt = `
+        ${FORMATTING_INSTRUCTION}
+        
+        ROLE: Kamu adalah "Jitu Financial Advisor" & "Media Buying Strategist". 
+        Tugasmu adalah menghitung unit ekonomi (Unit Economics) untuk menentukan apakah sebuah produk layak diiklankan atau tidak (boncos).
+        
+        DATA INPUT USER (Sudah format angka murni):
+        - Harga Jual: Rp ${productPrice}
+        - HPP (Modal Produk): Rp ${cogs}
+        - Budget Iklan Tersedia: Rp ${adBudget}
+        - Target Penjualan (Qty): ${targetSales || 'Tidak set'}
+        - Ekspektasi Biaya per Closing (CPR): Rp ${expectedCpr || 'Belum tahu'}
+        
+        TUGAS KALKULASI & ANALISIS:
+        
+        1. **Hitung Margin Profit:** (Harga Jual - HPP).
+        2. **Hitung Max CPA (Cost Per Acquisition):** Batas maksimal biaya iklan per closing agar BEP (Break Even Point). *Rumus: Margin Profit*.
+        3. **Hitung BEP ROAS:** (Harga Jual / Margin Profit). Jelaskan angka ini (misal: "Iklanmu minimal harus ROAS X.X agar tidak rugi").
+        4. **Simulasi Budget:** Dengan budget Rp ${adBudget}, berapa potensi profit bersih jika CPR sesuai ekspektasi?
+        
+        OUTPUT FORMAT (Markdown):
+        
+        # 💰 ANALISA KELAYAKAN BISNIS
+        
+        ## 1. 📊 RANGKUMAN MARGIN
+        * **Profit Kotor per Pcs:** Rp [Hitung]
+        * **Margin (%):** [Hitung %] (Tebal/Tipis?)
+        
+        ## 2. 🛡️ BATAS AMAN (GUARDRAILS)
+        Agar tidak boncos, perhatikan angka keramat ini:
+        * **Maksimal CPR/CPA:** Rp [Sama dengan Profit Kotor] 
+        * **Target ROAS Minimal (BEP):** [Hitung] x
+        *(Artinya: Kalau di dashboard ROAS di bawah angka ini, MATIKAN IKLAN)*
+        
+        ## 3. 🚀 PROYEKSI (Simulasi Budget Rp ${adBudget})
+        Jika asumsi CPR kamu tercapai (Rp ${expectedCpr || 'Estimasi AI'}):
+        * **Potensi Closing:** [Budget / CPR] pcs
+        * **Total Omset:** Rp [Closing x Harga Jual]
+        * **Total Profit Bersih:** Rp [(Total Omset - Total HPP - Budget Iklan)]
+        
+        ## 4. 💡 KESIMPULAN DOKTER
+        [LAYAK GAS / HATI-HATI / JANGAN IKLAN]
+        *Berikan alasan logis. Jika margin terlalu tipis (<30%), sarankan bundle atau naikkan harga.*
+        `;
+        
+        firstUserMsg = `Hitungkan potensi profit saya. Harga jual ${productPrice}, Modal ${cogs}.`;
+    }
+
+    // ==========================================
     // E. TOOLS LAINNYA
     // ==========================================
     else {
