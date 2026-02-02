@@ -1,171 +1,147 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
-import connectDB from '@/lib/db'; 
-import Transaction from '@/models/Transaction'; 
-import User from '@/models/User'; 
+import connectDB from '@/lib/db';
+import Transaction from '@/models/Transaction';
+import User from '@/models/User';
 import Notification from '@/models/Notification'; 
-import { sendEmail } from '@/lib/mail'; // <--- Wajib Import ini untuk Notif Email
+import { sendEmail } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
-// =================================================================
-// 1. GET: User Lihat Invoice & Admin Lihat Detail
-// =================================================================
+// 1. GET DETAIL
 export async function GET(req, { params }) {
   try {
-    const { id } = params;
-    const token = cookies().get('token')?.value;
-    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
     await connectDB();
-
-    // Populate userId agar Admin bisa lihat nama user
-    const transaction = await Transaction.findById(id).populate('userId', 'name email');
+    const transaction = await Transaction.findById(params.id).populate('userId', 'name email');
     
-    if (!transaction) return NextResponse.json({ message: 'Transaksi tidak ditemukan' }, { status: 404 });
+    if (!transaction) return NextResponse.json({ message: "Transaksi tidak ditemukan" }, { status: 404 });
 
-    // SECURITY: Hanya Admin ATAU Pemilik Transaksi yang boleh lihat
-    if (decoded.role !== 'admin' && transaction.userId._id.toString() !== decoded.userId) {
-        return NextResponse.json({ message: 'Forbidden Access' }, { status: 403 });
-    }
-
-    return NextResponse.json({ transaction });
+    return NextResponse.json({ success: true, transaction });
   } catch (error) {
-    console.error("GET Transaksi Error:", error);
-    return NextResponse.json({ message: 'Server Error' }, { status: 500 });
+    return NextResponse.json({ message: "Error: " + error.message }, { status: 500 });
   }
 }
 
-// =================================================================
-// 2. PUT: Admin Approve/Reject (Ubah Status)
-// =================================================================
+// 2. PUT (UPDATE STATUS: APPROVE/REJECT)
 export async function PUT(req, { params }) {
   try {
-    // 1. CEK AUTH & ROLE ADMIN (WAJIB ADA)
-    const token = cookies().get('token')?.value;
-    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    
-    // Security Check: Hanya role 'admin' yang boleh akses
-    if (decoded.role !== 'admin') {
-        return NextResponse.json({ message: 'Hanya Admin yang bisa approve!' }, { status: 403 });
-    }
-
     await connectDB();
-    const { id } = params;
-    const { status } = await req.json(); // 'success' atau 'failed'
+    const { status } = await req.json(); 
+    
+    // Ambil Data Transaksi & Populate User
+    const trx = await Transaction.findById(params.id).populate('userId');
+    
+    if (!trx) return NextResponse.json({ message: "Transaksi hilang" }, { status: 404 });
 
-    console.log(`🚀 [ADMIN] Update Transaksi ${id} -> ${status}`);
-
-    const transaction = await Transaction.findById(id);
-    if (!transaction) return NextResponse.json({ message: "Transaksi tidak ditemukan" }, { status: 404 });
-
-    // 2. IDEMPOTENCY CHECK (Cek biar saldo gak masuk double)
-    if (transaction.status === 'success') {
-        return NextResponse.json({ message: "Transaksi ini sudah sukses sebelumnya" }, { status: 400 });
+    // [SAFETY CHECK] Pastikan User masih ada
+    if (!trx.userId) {
+        trx.status = status;
+        await trx.save();
+        return NextResponse.json({ success: true, message: "Status update (User tidak ditemukan, skip notif)" });
     }
 
-    // A. UPDATE STATUS TRANSAKSI DI DB
-    transaction.status = status;
-    await transaction.save();
+    const user = trx.userId;
+    const isTopup = trx.type === 'in' || trx.type === 'topup';
 
-    // B. JIKA STATUS DIUBAH JADI 'SUCCESS' (APPROVE)
-    if (status === 'success') {
-        
-        const user = await User.findById(transaction.userId);
-        
-        if (user) {
-            // [FIX LOGIKA SALDO]
-            // Gunakan 'credits' (Poin), JANGAN 'amount' (Rupiah)
-            user.credits = (user.credits || 0) + (transaction.credits || 0);
-            
-            // Auto Aktifkan Premium
-            user.isPremium = true; 
-            
-            await user.save();
-            console.log(`💰 Saldo User ${user.name} bertambah +${transaction.credits} poin.`);
+    // --- LOGIKA PERBAIKAN "UNDEFINED CREDITS" ---
+    // Jika field 'credits' kosong (data lama), ambil dari 'amount'
+    // Jika keduanya kosong, default ke 0 agar tidak error
+    const pointsToAdd = trx.credits || trx.amount || 0;
 
-            // [NEW] KIRIM EMAIL PEMBERITAHUAN KE USER
+    // --- A. SKENARIO APPROVE (TOP UP SUKSES) ---
+    if (status === 'success' && trx.status !== 'success') {
+        
+        if (isTopup) {
+            // 1. Tambah Saldo & Aktifkan Premium
+            await User.findByIdAndUpdate(user._id, { 
+                $inc: { credits: pointsToAdd }, // Gunakan variabel aman ini
+                isPremium: true 
+            });
+
+            // 2. Buat Notifikasi
+            try {
+                await Notification.create({
+                    target: 'user', 
+                    userId: user._id,
+                    transactionId: trx._id,
+                    title: "Top Up Berhasil! 💎",
+                    message: `Saldo +${pointsToAdd.toLocaleString()} Poin masuk. Premium Aktif!`,
+                    link: '/site/dashboard',
+                    category: 'billing',  
+                    type: 'success',     
+                    isRead: false
+                });
+            } catch (errNotif) { console.error("Gagal DB Notif:", errNotif.message); }
+
+            // 3. Kirim Email
             try {
                 const emailHtml = `
                     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #10b981; border-radius: 10px;">
-                        <h2 style="color: #059669;">✅ Top Up Berhasil!</h2>
+                        <h2 style="color: #059669;">✅ Pembayaran Diterima!</h2>
                         <p>Halo <b>${user.name}</b>,</p>
-                        <p>Pembayaran sebesar <b>Rp ${transaction.amount.toLocaleString('id-ID')}</b> telah kami terima.</p>
+                        <p>Top Up Anda sukses. Akun Anda kini <b>PREMIUM</b>.</p>
                         
-                        <div style="background: #ecfdf5; padding: 15px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                            <span style="display: block; font-size: 12px; color: #666;">Saldo Masuk</span>
-                            <span style="font-size: 24px; font-weight: bold; color: #059669;">+${transaction.credits.toLocaleString()} Poin</span>
+                        <div style="background: #ecfdf5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                            <span style="display:block; font-size:12px; color:#666;">Saldo Masuk</span>
+                            <span style="font-size: 24px; font-weight: bold; color: #059669;">+${pointsToAdd.toLocaleString()} Poin</span>
                         </div>
-
-                        <p>Status Akun: <b style="color: #d97706;">PREMIUM AKTIF 👑</b></p>
                         
-                        <a href="${process.env.NEXT_PUBLIC_BASE_URL}/site/dashboard" style="display: inline-block; background: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Buka Dashboard</a>
+                        <a href="${process.env.NEXT_PUBLIC_APP_URL}/site/dashboard" style="background-color: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Buka Dashboard</a>
                     </div>
                 `;
-
-                await sendEmail({
-                    to: user.email,
-                    subject: 'Hore! Saldo Poin Masuk 💎',
-                    html: emailHtml
-                });
-            } catch (errEmail) {
-                console.error("Gagal kirim email user:", errEmail);
-            }
-
-            // [NEW] BUAT NOTIFIKASI DATABASE (Lonceng di Web)
-            try {
-                await Notification.create({
-                    target: 'user',
-                    userId: user._id,
-                    transactionId: transaction._id, 
-                    category: 'billing',            
-                    type: 'success',
-                    title: 'Top Up Berhasil! 💎',
-                    message: `Saldo +${transaction.credits.toLocaleString()} poin masuk. Akun Premium Aktif!`,
-                    isRead: false,
-                });
-            } catch (errNotif) {
-                console.error("Gagal buat notif DB:", errNotif);
-            }
+                await sendEmail({ to: user.email, subject: 'Top Up Berhasil - Jitu Digital', html: emailHtml });
+            } catch (e) { console.log("Email error skip"); }
         }
     }
 
-    return NextResponse.json({ 
-        success: true, 
-        message: status === 'success' ? "User Berhasil Di-Approve & Email Terkirim" : "Status Diperbarui" 
-    });
+    // --- B. SKENARIO REJECT (TOP UP GAGAL) ---
+    if (status === 'failed' && trx.status !== 'failed') {
+        try {
+            await Notification.create({
+                target: 'user',
+                userId: user._id,
+                transactionId: trx._id,
+                title: "Top Up Gagal ❌",
+                message: `Top Up ID #${trx._id.toString().slice(-6).toUpperCase()} dibatalkan.`,
+                link: '/site/topup',
+                category: 'billing',
+                type: 'danger', 
+                isRead: false
+            });
+
+             const failHtml = `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ef4444; border-radius: 10px;">
+                    <h2 style="color: #ef4444;">❌ Transaksi Dibatalkan</h2>
+                    <p>Halo <b>${user.name}</b>,</p>
+                    <p>Mohon maaf, Top Up Anda ID #${trx._id.toString().slice(-6).toUpperCase()} tidak dapat diproses.</p>
+                </div>
+            `;
+            await sendEmail({ to: user.email, subject: 'Top Up Gagal', html: failHtml });
+        } catch (e) { console.log("Notif/Email fail skip"); }
+    }
+
+    // UPDATE STATUS & SAVE
+    trx.status = status;
+    // Update juga field credits biar data jadi rapi untuk kedepannya
+    if (!trx.credits) trx.credits = pointsToAdd;
+    
+    await trx.save();
+
+    return NextResponse.json({ success: true, message: "Status updated & Notification sent" });
 
   } catch (error) {
-    console.error("Admin PUT Error:", error);
-    return NextResponse.json({ message: 'Server Error' }, { status: 500 });
+    console.error("Transaction Update Error:", error);
+    return NextResponse.json({ message: "Update Gagal: " + error.message }, { status: 500 });
   }
 }
 
-// =================================================================
-// 3. DELETE: Hapus Transaksi (Cleanup - Opsional tapi Penting)
-// =================================================================
+// 3. DELETE
 export async function DELETE(req, { params }) {
-  try {
-    const token = cookies().get('token')?.value;
-    if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    if (decoded.role !== 'admin') return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-
-    const { id } = params;
-    await connectDB();
-    
-    // Hapus Notifikasi terkait dulu (Biar bersih)
-    await Notification.deleteMany({ transactionId: id });
-    
-    // Hapus Transaksi
-    await Transaction.findByIdAndDelete(id);
-    
-    return NextResponse.json({ message: 'Data transaksi berhasil dihapus' });
-  } catch (error) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
-  }
+    try {
+        await connectDB();
+        await Transaction.findByIdAndDelete(params.id);
+        await Notification.deleteMany({ transactionId: params.id });
+        return NextResponse.json({ success: true, message: "Deleted" });
+    } catch (error) {
+        return NextResponse.json({ message: "Error" }, { status: 500 });
+    }
 }

@@ -9,7 +9,7 @@ import {
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
   LogOut, Zap, ShieldCheck, Wallet, Plus, Settings,
   Menu, X, LayoutTemplate, 
-  Lock, Flame, Sparkles, Crown, Share2
+  Lock, Flame, Sparkles, Share2
 } from 'lucide-react';
 
 const poppins = Poppins({ 
@@ -25,7 +25,7 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     fetchUserData();
-    setSidebarOpen(false); 
+    setSidebarOpen(false); // Auto close sidebar on navigation
   }, [pathname]);
 
   const fetchUserData = async () => {
@@ -33,10 +33,10 @@ export default function DashboardLayout({ children }) {
       const res = await fetch('/api/user/me');
       const data = await res.json();
       if (data.user) setUserData(data.user);
-    } catch (error) {}
+    } catch (error) { console.error("Failed fetch user"); }
   };
 
-  // --- MENU CONFIG ---
+  // --- MENU CONFIGURATION ---
   const rawMenuItems = [
     { name: 'Dashboard', href: '/site/dashboard', icon: <LayoutDashboard size={20} />, isFree: true },
     
@@ -45,16 +45,15 @@ export default function DashboardLayout({ children }) {
     { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: true },
     { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: true },
     
-    // --- UPDATE: MENAMBAHKAN FITUR SOSMED ---
+    // --- UPDATE: FITUR BARU ---
     { section: 'SOCIAL MEDIA' },
     { 
         name: 'Generate Post', 
         href: '/site/tools/fb-autopilot', 
-        icon: <Share2 size={20} />, // Icon Share agar relevan dengan sosmed
+        icon: <Share2 size={20} />, 
         badge: 'NEW', 
-        isFree: false // false = Wajib Premium (Terkunci untuk free user)
+        isFree: false // PREMIUM ONLY
     },
-    // ----------------------------------------
 
     { section: 'VISUAL & AUDIT (AI)' },
     { name: 'Ad Reviewer', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, badge: 'NEW', isFree: false },
@@ -77,7 +76,8 @@ export default function DashboardLayout({ children }) {
 
   const handleMenuClick = (e, item) => {
     if (item.disabled) { e.preventDefault(); return; }
-    // Logic Lock: Redirect ke Topup jika belum premium
+    
+    // Logic Lock: Redirect ke Topup jika fitur Premium diklik user Free
     if (!item.isFree && !userData?.isPremium && userData?.role !== 'admin') {
       e.preventDefault(); 
       router.push('/site/topup'); 
@@ -96,7 +96,7 @@ export default function DashboardLayout({ children }) {
       {/* --- MOBILE HEADER --- */}
       <header className="md:hidden fixed top-0 left-0 right-0 h-20 z-[60] px-5 flex items-center justify-between transition-all bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
         
-        {/* LOGO (Desain Lama - Simple) */}
+        {/* LOGO */}
         <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm">
               <Zap className="w-4 h-4 text-white fill-white" />
@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }) {
         <div className="flex items-center gap-3">
             <NotificationBell /> 
             
-            {/* TOMBOL MENU (Desain Baru - Pill Shape) */}
+            {/* TOMBOL MENU */}
             <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)}
                 className="flex items-center gap-2 pl-4 pr-2 py-2 bg-slate-900 text-white rounded-full shadow-lg shadow-slate-900/20 active:scale-95 transition-all group border border-slate-800"
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }) {
         </div>
       </header>
 
-      {/* BACKDROP */}
+      {/* BACKDROP MOBILE */}
       {isSidebarOpen && (
         <div 
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[45] md:hidden animate-in fade-in duration-300"
@@ -134,7 +134,7 @@ export default function DashboardLayout({ children }) {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         
-        {/* LOGO DESKTOP (Desain Lama - Simple) */}
+        {/* LOGO DESKTOP */}
         <div className="h-20 hidden md:flex items-center justify-between px-5 border-b border-slate-50 shrink-0">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-lg shadow-md">
@@ -151,7 +151,7 @@ export default function DashboardLayout({ children }) {
             <button onClick={() => setSidebarOpen(false)} className="p-2 bg-white rounded-full shadow-sm text-rose-500 hover:bg-rose-50"><X size={18}/></button>
         </div>
 
-        {/* WIDGET SALDO (Desain Lama - Dark Card) */}
+        {/* WIDGET SALDO */}
         <div className="px-4 pt-6 pb-2 shrink-0">
           <div className={`rounded-2xl p-5 md:p-4 relative overflow-hidden group shadow-lg border transition-all duration-500 
             ${userData?.isPremium 
@@ -184,7 +184,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
 
-        {/* LIST MENU */}
+        {/* LIST MENU SCROLLABLE */}
         <nav className="flex-1 overflow-y-auto px-3 space-y-1 mt-4 pb-10 custom-scrollbar">
           {rawMenuItems.map((item, index) => {
             if (item.section) {

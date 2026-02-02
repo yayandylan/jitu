@@ -13,13 +13,12 @@ export default function PaymentPage() {
   const [trx, setTrx] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [showTutorial, setShowTutorial] = useState(false);
 
   // --- CONFIG BANK BAPAK ---
   const BANK_INFO = { 
     bank: "BCA", 
     code: "014",
-    number: "0561361061", // Pastikan No Rek Benar
+    number: "0561361061", 
     name: "Ahmad Sofyan" 
   };
   
@@ -29,7 +28,6 @@ export default function PaymentPage() {
     if (!params.id) return;
     setLoading(true);
     try {
-      // Menuju API Tunggal yang kita buat tadi
       const res = await fetch(`/api/transaction/${params.id}`);
       const data = await res.json();
       if(data.transaction) setTrx(data.transaction);
@@ -42,12 +40,16 @@ export default function PaymentPage() {
 
   useEffect(() => { fetchTransaction(); }, [fetchTransaction]);
 
-  // LOGIC KODE UNIK (Ambil 3 digit terakhir dari total rupiah)
+  // LOGIC MEMISAHKAN KODE UNIK (3 DIGIT TERAKHIR)
   const formatPriceParts = (price) => {
     if (!price) return { main: "0", unique: "000" };
     const str = price.toString();
-    const unique = str.slice(-3); // Misal: 123
-    const mainNum = parseInt(str.slice(0, -3)); // Misal: 99
+    
+    // Ambil 3 digit terakhir sebagai kode unik
+    const unique = str.slice(-3); 
+    // Sisanya adalah nominal utama
+    const mainNum = parseInt(str.slice(0, -3)); 
+    
     const main = mainNum ? mainNum.toLocaleString('id-ID') : "0";
     return { main, unique };
   };
@@ -59,9 +61,12 @@ export default function PaymentPage() {
     </div>
   );
 
-  // amount = Rupiah Total (99.123), credits = Poin (6000)
-  const totalRupiah = trx.amount || 0;
+  // --- PERBAIKAN DISINI ---
+  // trx.price  = Total Rupiah (Harga + Kode Unik)
+  // trx.credits = Jumlah Poin yang didapat
+  const totalRupiah = trx.price || 0; 
   const totalPoin = trx.credits || 0;
+  
   const { main, unique } = formatPriceParts(totalRupiah);
 
   return (
@@ -81,15 +86,16 @@ export default function PaymentPage() {
           <div className="relative z-10 space-y-4">
             <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-2">
                 {trx.status === 'success' ? <CheckCircle size={14}/> : <Hash size={14}/>}
-                {trx.status === 'success' ? 'Pembayaran Berhasil' : 'Nominal Transfer'}
+                {trx.status === 'success' ? 'Pembayaran Berhasil' : 'Total Transfer (Wajib Sesuai)'}
             </p>
             
             <div className="flex flex-col items-center">
                 <h1 className="text-4xl md:text-5xl font-black tracking-tighter flex items-baseline justify-center">
                     <span className="text-lg font-normal opacity-40 mr-1.5">Rp</span>
                     <span>{main}</span>
+                    <span className="text-xl font-black mx-0.5">.</span>
                     {/* Digit unik diberi highlight warna amber */}
-                    <span className="text-amber-400 bg-amber-400/10 px-1.5 rounded-xl ml-1 shadow-[0_0_15px_rgba(251,191,36,0.3)]">{unique}</span>
+                    <span className="text-amber-400 bg-amber-400/10 px-1.5 rounded-xl ml-0.5 shadow-[0_0_15px_rgba(251,191,36,0.3)]">{unique}</span>
                 </h1>
                 
                 {trx.status === 'success' ? (
@@ -101,7 +107,7 @@ export default function PaymentPage() {
                     <div className="mt-6 inline-flex items-center gap-2 bg-white/5 border border-white/10 px-5 py-2.5 rounded-2xl backdrop-blur-sm">
                         <Sparkles size={12} className="text-amber-400 animate-pulse" fill="currentColor"/>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-amber-100">
-                            Transfer tepat hingga angka <span className="text-amber-400 underline font-black">{unique}</span>
+                            Transfer tepat hingga <span className="text-amber-400 underline font-black">3 digit terakhir</span>
                         </p>
                     </div>
                 )}
@@ -147,7 +153,7 @@ export default function PaymentPage() {
               {trx.status === 'pending' ? (
                 <>
                   <button 
-                      onClick={() => window.open(`https://wa.me/${WA_ADMIN}?text=Halo Admin Jitu Digital, saya sudah transfer sebesar Rp ${totalRupiah.toLocaleString('id-ID')} untuk Order ID: ${trx._id.slice(-6).toUpperCase()}. Mohon diproses agar poin ${totalPoin} segera masuk.`, '_blank')} 
+                      onClick={() => window.open(`https://wa.me/${WA_ADMIN}?text=Halo Admin Jitu Digital, saya sudah transfer sebesar Rp ${totalRupiah.toLocaleString('id-ID')} (Kode Unik: ${unique}) untuk Order ID: ${trx._id.slice(-6).toUpperCase()}. Mohon diproses agar poin ${totalPoin} segera masuk.`, '_blank')} 
                       className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-black py-4 rounded-[1.2rem] flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/20 text-[10px] uppercase tracking-[0.2em] transition-all active:scale-95"
                   >
                       <MessageCircle size={18} fill="white" /> Konfirmasi WhatsApp
@@ -175,7 +181,7 @@ export default function PaymentPage() {
           <div className="flex gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100/50 items-start">
              <div className="shrink-0 text-blue-600 mt-0.5 bg-white p-1.5 rounded-full shadow-sm"><Info size={14}/></div>
              <p className="text-[10px] text-blue-900/70 font-medium leading-relaxed">
-                <strong className="text-blue-700 uppercase tracking-tight">Info:</strong> Saldo sebesar <span className="font-bold text-blue-900">{totalPoin.toLocaleString()} Poin</span> akan masuk otomatis setelah Admin memverifikasi mutasi bank Anda. Pastikan nominal transfer sesuai.
+                <strong className="text-blue-700 uppercase tracking-tight">Penting:</strong> Saldo <span className="font-bold text-blue-900">{totalPoin.toLocaleString()} Poin</span> akan masuk setelah Admin memverifikasi mutasi sebesar <span className="font-black bg-white px-1 rounded text-blue-800">Rp {totalRupiah.toLocaleString('id-ID')}</span>. Pastikan kode unik 3 digit terakhir sesuai.
              </p>
           </div>
         </div>

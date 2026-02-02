@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
 import Transaction from '@/models/Transaction';
 import User from '@/models/User';
-import { sendAdminNotification } from '@/lib/mail'; // <--- Import Helper Email
+import { sendAdminNotification } from '@/lib/mail'; 
 
 export async function POST(req) {
   try {
@@ -23,21 +23,24 @@ export async function POST(req) {
     const { packageName, price, points, voucherCode } = await req.json();
 
     // 3. GENERATE KODE UNIK (1 - 999)
-    // Contoh: Harga 100.000 + Kode 123 = Total 100.123
     const uniqueCode = Math.floor(Math.random() * 900) + 1; 
-    const finalAmount = Number(price) + uniqueCode;
+    const finalAmount = Number(price) + uniqueCode; // Harga Rupiah + Kode Unik
 
-    // 4. SIMPAN TRANSAKSI KE DATABASE (Status: PENDING)
+    // 4. SIMPAN TRANSAKSI (SESUAI SCHEMA BARU)
     const newTrx = await Transaction.create({
+      // -- WAJIB --
       userId: user._id,
-      packageName,
-      points: Number(points),
-      price: finalAmount, // Harga sudah termasuk kode unik
-      uniqueCode,
+      
+      type: 'in',                  // 'in' = Uang/Poin Masuk (Topup)
+      amount: Number(points),      // Di schema baru: amount = Jumlah Poin
       status: 'pending',
-      paymentMethod: 'bank_transfer',
-      voucherCode: voucherCode || null,
-      createdAt: new Date()
+      description: `Order Topup: ${packageName}`,
+      
+      // -- KHUSUS TOPUP --
+      price: finalAmount,          // Total Rupiah (Harga + Kode Unik)
+      uniqueCode: uniqueCode,
+      packageName: packageName,
+      voucherCode: voucherCode || null
     });
 
     // 5. KIRIM EMAIL NOTIFIKASI KE ADMIN
@@ -48,36 +51,29 @@ export async function POST(req) {
             <p>Halo Admin, user <b>${user.name}</b> membuat pesanan baru.</p>
             
             <div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin: 15px 0;">
-                <p style="margin:0; font-size:12px; color:#666;">Total Harus Transfer (Unik):</p>
+                <p style="margin:0; font-size:12px; color:#666;">Total Transfer (Unik):</p>
                 <h1 style="color: #1d4ed8; margin: 5px 0;">Rp ${finalAmount.toLocaleString('id-ID')}</h1>
-                <p style="margin: 5px 0 0 0; color: #666;">Paket: <b>${packageName}</b> (${points} Poin)</p>
-                ${voucherCode ? `<p style="margin: 5px 0 0 0; color: green;">Voucher: <b>${voucherCode}</b></p>` : ''}
+                <p style="margin: 5px 0 0 0; color: #666;">Paket: <b>${packageName}</b> (+${points} Poin)</p>
             </div>
 
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr><td style="padding: 5px; color:#666;">User Email</td><td>${user.email}</td></tr>
-              <tr><td style="padding: 5px; color:#666;">Kode Unik</td><td style="font-weight:bold;">${uniqueCode}</td></tr>
+              <tr><td style="padding: 5px; color:#666;">ID Transaksi</td><td>${newTrx._id}</td></tr>
               <tr><td style="padding: 5px; color:#666;">Status</td><td style="color: orange; font-weight: bold;">MENUNGGU TRANSFER</td></tr>
             </table>
-            
-            <p style="font-size: 12px; color: #666; margin-top: 20px;">
-               *User sedang diarahkan ke halaman pembayaran.
-            </p>
           </div>
         `;
 
-        // Kirim Email (Asynchronous agar tidak memperlambat response frontend)
         await sendAdminNotification(`Order: Rp ${finalAmount.toLocaleString('id-ID')} - ${user.name}`, emailHtml);
     } catch (mailError) {
         console.error("⚠️ Gagal kirim email admin:", mailError);
-        // Jangan throw error, agar transaksi tetap berhasil di mata user
     }
 
     // 6. RESPONSE KE FRONTEND
     return NextResponse.json({ 
       success: true,
       message: 'Order berhasil dibuat!', 
-      transactionId: newTrx._id, // WAJIB ADA untuk redirect frontend
+      transactionId: newTrx._id, 
       totalPayment: finalAmount 
     }, { status: 201 });
 

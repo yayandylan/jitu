@@ -13,7 +13,7 @@ export default function AdminTransactions() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // 1. FETCH DATA (MENDUKUNG FILTER)
+  // 1. FETCH DATA
   const fetchTransactions = async () => {
     setLoading(true);
     try {
@@ -25,7 +25,6 @@ export default function AdminTransactions() {
       const res = await fetch(params.toString() ? `${url}?${params.toString()}` : url);
       const data = await res.json();
       
-      // FIX: Ambil data dari data.data (Karena API mengembalikan { data: [...] })
       setTransactions(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       console.error("Gagal mengambil data:", error);
@@ -35,12 +34,11 @@ export default function AdminTransactions() {
     }
   };
 
-  // 2. APPROVE TRANSAKSI (Manual Confirm)
+  // 2. APPROVE TRANSAKSI
   const handleUpdateStatus = async (id, status) => {
     if (!confirm(`Yakin ingin mengubah status menjadi ${status.toUpperCase()}? Saldo user akan bertambah.`)) return;
     
     try {
-      // Menuju API Tunggal: /api/transaction/[id]
       const res = await fetch(`/api/transaction/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -51,7 +49,7 @@ export default function AdminTransactions() {
 
       if (res.ok) {
         alert(result.message || "Berhasil diupdate!");
-        fetchTransactions(); // Refresh data tabel
+        fetchTransactions(); 
       } else {
         alert("Gagal: " + result.message);
       }
@@ -64,7 +62,6 @@ export default function AdminTransactions() {
   const handleDelete = async (id) => {
     if (!confirm("Hapus transaksi ini permanen? Data tidak bisa kembali.")) return;
     try {
-      // Arahkan ke API Tunggal dengan method DELETE
       const res = await fetch(`/api/transaction/${id}`, { method: 'DELETE' });
       if (res.ok) {
         alert("Terhapus!");
@@ -75,7 +72,7 @@ export default function AdminTransactions() {
 
   useEffect(() => { fetchTransactions(); }, [startDate, endDate]);
 
-  // --- FILTERING LOGIC (CLIENT SIDE) ---
+  // --- FILTERING LOGIC ---
   const filteredByTab = transactions.filter(t => t.type === tab || (tab === 'in' && t.type === 'topup'));
   
   const searchedData = filteredByTab.filter(item => {
@@ -89,17 +86,18 @@ export default function AdminTransactions() {
   });
 
   // --- STATISTIK RINGKAS ---
+  // Perbaiki: Total Income ambil dari field 'price' (Rupiah), bukan 'amount' (Poin)
   const totalIncome = transactions
     .filter(t => (t.type === 'in' || t.type === 'topup') && t.status === 'success')
-    .reduce((sum, t) => sum + (t.amount || 0), 0); // Rupiah ada di field amount
+    .reduce((sum, t) => sum + (t.price || 0), 0); 
 
   const totalAISpentPoints = transactions
     .filter(t => t.type === 'out')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
+    .reduce((sum, t) => sum + (t.amount || 0), 0); // Usage Poin
 
   const totalModalAI = transactions
     .filter(t => t.type === 'out')
-    .reduce((sum, t) => sum + (t.actualCost || 0), 0);
+    .reduce((sum, t) => sum + (t.actualCost || 0), 0); // Cost Rupiah API
 
   const profit = totalIncome - totalModalAI;
 
@@ -117,7 +115,7 @@ export default function AdminTransactions() {
         </button>
       </div>
 
-      {/* 1. KARTU STATISTIK */}
+      {/* KARTU STATISTIK */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-blue-600 p-6 rounded-[2rem] text-white shadow-lg shadow-blue-200 relative overflow-hidden">
           <div className="relative z-10">
@@ -155,7 +153,7 @@ export default function AdminTransactions() {
         </div>
       </div>
 
-      {/* 2. AREA FILTER & SEARCH */}
+      {/* FILTER & SEARCH */}
       <div className="flex flex-col lg:flex-row gap-4">
         <div className="flex-1 bg-white p-3 rounded-3xl border border-slate-100 flex items-center px-4 shadow-sm group hover:border-blue-200 transition-colors">
           <Search className="w-4 h-4 text-slate-400 mr-2 group-hover:text-blue-500" />
@@ -181,7 +179,7 @@ export default function AdminTransactions() {
         </div>
       </div>
 
-      {/* 3. TABS PEMISAH */}
+      {/* TABS */}
       <div className="flex gap-2 p-1.5 bg-slate-100 w-fit rounded-2xl border border-slate-200">
         <button onClick={() => setTab('in')} className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'in' ? 'bg-white shadow text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
            Penjualan Poin (IN)
@@ -191,7 +189,7 @@ export default function AdminTransactions() {
         </button>
       </div>
 
-      {/* 4. TABEL DATA */}
+      {/* TABEL DATA */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden text-xs min-h-[400px]">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -219,9 +217,8 @@ export default function AdminTransactions() {
                   <tr key={item._id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-8 py-5 font-mono text-[10px] text-slate-400 font-bold">
                       #{item._id?.slice(-6).toUpperCase()}
-                      {/* Tampilkan Kode Unik jika ada di deskripsi atau field */}
-                      {item.description?.includes('Kode:') && (
-                         <span className="block text-blue-600 bg-blue-50 w-fit px-1 rounded mt-1">{item.description.split('(')[1]?.replace(')','')}</span>
+                      {item.uniqueCode && (
+                         <span className="block text-blue-600 bg-blue-50 w-fit px-1 rounded mt-1 font-bold">Kode: {item.uniqueCode}</span>
                       )}
                     </td>
 
@@ -236,15 +233,18 @@ export default function AdminTransactions() {
                     </td>
 
                     <td className="px-6 py-5">
+                      {/* FIX: Ambil dari item.credits (jika ada) atau item.amount */}
                       <span className={`font-black text-xs px-2 py-1 rounded-lg ${tab === 'in' ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'}`}>
-                        {tab === 'in' ? '+' : '-'}{item.credits?.toLocaleString('id-ID') || item.amount?.toLocaleString('id-ID')}
+                        {tab === 'in' ? '+' : '-'}{(item.credits || item.amount || 0).toLocaleString('id-ID')}
                       </span>
                     </td>
 
                     <td className="px-6 py-5 font-bold text-slate-700">
                       {tab === 'in' ? (
                         <div className="space-y-1">
-                             <span className="text-blue-700 font-black text-xs">Rp {(item.amount || 0).toLocaleString('id-ID')}</span>
+                             {/* FIX: Tampilkan item.price (Rupiah), bukan item.amount */}
+                             <span className="text-blue-700 font-black text-xs">Rp {(item.price || 0).toLocaleString('id-ID')}</span>
+                             
                              <div className={`text-[9px] font-bold uppercase tracking-wider w-fit px-1.5 py-0.5 rounded flex items-center gap-1
                                 ${item.status === 'success' ? 'bg-emerald-100 text-emerald-600' : 
                                   item.status === 'failed' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>

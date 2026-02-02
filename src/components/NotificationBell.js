@@ -1,147 +1,169 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Loader2, Star, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { 
+  Bell, Info, CheckCircle2, XCircle, CreditCard, 
+  Shield, Megaphone, Loader2 
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [hasNew, setHasNew] = useState(false);
   const [loading, setLoading] = useState(true);
-  
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
+  const router = useRouter();
 
-  const fetchNotif = async () => {
+  // 1. FETCH DATA
+  const fetchNotifications = async () => {
     try {
-      // API ini harus mengembalikan data yang sudah difilter berdasarkan status user di backend
       const res = await fetch('/api/user/notifications');
+      if (!res.ok) throw new Error("Gagal");
       const data = await res.json();
       
-      if (Array.isArray(data)) {
-        setNotifications(data);
-        setLoading(false);
-
-        const lastSeenId = localStorage.getItem('last_notif_id');
-        if (data.length > 0 && data[0]._id !== lastSeenId) {
-          setHasNew(true);
-        }
-      }
-    } catch (err) {
-      console.error("Gagal load notif:", err);
+      setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch (error) {
+      setNotifications([]); 
+      setUnreadCount(0);
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNotif();
-    const interval = setInterval(fetchNotif, 30000); // 30 detik sekali cukup agar tidak berat di server
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleToggle = () => {
+  // 2. MARK AS READ
+  const handleToggle = async () => {
     const newState = !isOpen;
     setIsOpen(newState);
-    if (newState && notifications.length > 0) {
-      setHasNew(false);
-      localStorage.setItem('last_notif_id', notifications[0]._id);
+
+    if (newState && unreadCount > 0) {
+      setUnreadCount(0);
+      try {
+        await fetch('/api/user/notifications', { method: 'PUT' });
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      } catch (e) { console.error(e); }
     }
   };
 
-  // Close when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsOpen(false);
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownRef]);
+  }, []);
+
+  // 3. ICON & COLOR HELPER
+  const getIcon = (category, type) => {
+    if (type === 'success') return <CheckCircle2 size={18} className="text-emerald-500" />;
+    if (type === 'danger') return <XCircle size={18} className="text-rose-500" />;
+    
+    switch (category) {
+        case 'billing': return <CreditCard size={18} className="text-blue-500" />;
+        case 'security': return <Shield size={18} className="text-purple-500" />;
+        case 'promo': return <Megaphone size={18} className="text-orange-500" />;
+        default: return <Info size={18} className="text-slate-400" />;
+    }
+  };
+
+  const getBgColor = (type, isRead) => {
+    if (isRead) return 'bg-white hover:bg-slate-50';
+    if (type === 'success') return 'bg-emerald-50/50 hover:bg-emerald-50';
+    if (type === 'danger') return 'bg-rose-50/50 hover:bg-rose-50';
+    return 'bg-blue-50/50 hover:bg-blue-50';
+  };
 
   return (
-    <div className="relative tracking-tighter" ref={dropdownRef}>
+    <div className="relative font-poppins text-left" ref={dropdownRef}>
+      
+      {/* TOMBOL LONCENG */}
       <button 
-        onClick={handleToggle}
-        className={`p-2 rounded-full transition-all outline-none relative ${isOpen ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
+        onClick={handleToggle} 
+        className={`relative p-2.5 rounded-xl transition-all active:scale-95 border border-transparent ${isOpen ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-500 hover:text-blue-600'}`}
       >
         <Bell size={20} />
-        {hasNew && (
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white" />
+        {unreadCount > 0 && !loading && (
+          <span className="absolute top-2 right-2.5 w-2.5 h-2.5 bg-rose-500 border-2 border-white rounded-full animate-pulse shadow-sm"></span>
         )}
       </button>
 
+      {/* DROPDOWN MENU */}
       {isOpen && (
-        <div className="absolute right-0 md:left-0 mt-3 w-80 bg-white border border-slate-200 shadow-2xl rounded-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 origin-top-right md:origin-top-left">
-            
-            {/* 1. Header: Bersih & Elegant */}
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
-              <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight">Notifikasi</h3>
-              {notifications.length > 0 && (
-                <span className="text-[9px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-md uppercase">
-                    {notifications.length} Pesan
-                </span>
-              )}
-            </div>
-
-            {/* 2. List Konten: Hirarki Visual yang Jelas */}
-            <div className="max-h-[400px] overflow-y-auto bg-white custom-scrollbar">
-              {loading ? (
-                <div className="p-10 text-center text-slate-400">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500 opacity-40"/>
-                    <p className="text-[10px] font-medium uppercase tracking-widest">Sinkronisasi...</p>
-                </div>
-              ) : notifications.length === 0 ? (
-                <div className="p-10 text-center">
-                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Bell size={20} className="text-slate-200" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-400">Belum ada info terbaru</p>
-                </div>
-              ) : (
-                notifications.map((notif) => (
-                  <div key={notif._id} className="p-5 border-b border-slate-50 hover:bg-slate-50/80 transition-all cursor-pointer group relative">
-                    <div className="flex gap-4">
-                        {/* Ikon Dinamis berdasarkan Tipe/Target */}
-                        <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${
-                            notif.targetGroup === 'premium' ? 'bg-amber-50 text-amber-500' :
-                            notif.type === 'success' ? 'bg-emerald-50 text-emerald-500' :
-                            notif.type === 'warning' ? 'bg-rose-50 text-rose-500' : 'bg-blue-50 text-blue-500'
-                        }`}>
-                            {notif.targetGroup === 'premium' ? <Star size={14} className="fill-amber-500" /> : 
-                             notif.type === 'success' ? <CheckCircle2 size={14} /> :
-                             notif.type === 'warning' ? <AlertTriangle size={14} /> : <Info size={14} />}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start mb-1">
-                                <h4 className="text-[13px] font-bold text-slate-900 leading-snug truncate pr-2">
-                                    {notif.title}
-                                </h4>
-                                <span className="text-[9px] font-medium text-slate-300 uppercase whitespace-nowrap mt-0.5">
-                                    {new Date(notif.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                                </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 font-normal leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">
-                                {notif.message}
-                            </p>
-                            
-                            {/* Badge Khusus Premium */}
-                            {notif.targetGroup === 'premium' && (
-                                <div className="mt-2 inline-flex items-center gap-1 text-[8px] font-black text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                                    Premium Exclusive
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            {/* 3. Footer */}
-            <button 
-                onClick={() => setIsOpen(false)}
-                className="w-full p-4 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] hover:text-slate-600 bg-slate-50/50 transition-colors"
-            >
-                Tutup Panel
+        <div className="absolute right-0 md:right-auto md:left-1/2 md:-translate-x-1/2 top-full mt-3 w-80 md:w-96 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top">
+          
+          {/* HEADER */}
+          <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 text-left">Notifikasi</h3>
+            <button onClick={fetchNotifications} className="text-slate-400 hover:text-blue-600 p-1 rounded-lg">
+               {loading ? <Loader2 size={14} className="animate-spin"/> : <Info size={14}/>}
             </button>
+          </div>
+
+          {/* LIST NOTIFIKASI */}
+          <div className="max-h-[400px] overflow-y-auto custom-scrollbar bg-white">
+            {loading && notifications.length === 0 ? (
+              <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-3">
+                <Loader2 className="animate-spin text-blue-500" size={24} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Memuat...</span>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-12 flex flex-col items-center justify-center text-center space-y-3">
+                <div className="bg-slate-50 p-4 rounded-full"><Bell size={24} className="text-slate-300" /></div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Tidak ada notifikasi</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {notifications.map((item) => (
+                  <div 
+                    key={item._id} 
+                    onClick={() => { setIsOpen(false); if(item.link) router.push(item.link); }}
+                    className={`p-4 flex gap-4 transition-all cursor-pointer group relative items-start text-left ${getBgColor(item.type, item.isRead)}`}
+                  >
+                    {/* ICON (Kiri) */}
+                    <div className="mt-1 shrink-0 bg-white p-1.5 rounded-lg shadow-sm border border-slate-100 h-fit">
+                        {getIcon(item.category, item.type)}
+                    </div>
+
+                    {/* KONTEN (Tengah - Rata Kiri) */}
+                    <div className="flex-1 space-y-1 min-w-0 text-left">
+                        <div className="flex justify-between items-start gap-2">
+                            {/* Judul: Force Text Left */}
+                            <h4 className={`text-[13px] font-bold leading-tight truncate text-left ${item.isRead ? 'text-slate-600' : 'text-slate-900'}`}>
+                                {item.title}
+                            </h4>
+                            {/* Tanggal */}
+                            <span className="text-[9px] font-bold text-slate-300 shrink-0 whitespace-nowrap pt-0.5">
+                                {new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                            </span>
+                        </div>
+                        
+                        {/* Pesan: Force Text Left & Align Left */}
+                        <p className={`text-[11px] leading-relaxed line-clamp-2 text-left ${item.isRead ? 'text-slate-400' : 'text-slate-600'}`}>
+                            {item.message}
+                        </p>
+                        
+                        {/* Link: Force Text Left */}
+                        {item.link && (
+                            <span className="text-[9px] font-bold text-blue-500 group-hover:underline decoration-blue-500/30 pt-1 block text-left">
+                                Lihat Detail &rarr;
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Indikator Belum Dibaca (Garis Biru di Kiri) */}
+                    {!item.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

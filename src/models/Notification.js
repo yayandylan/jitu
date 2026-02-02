@@ -1,69 +1,98 @@
 import mongoose from 'mongoose';
 
 const NotificationSchema = new mongoose.Schema({
-  // --- TARGET AUDIENCE ---
+  // =================================================
+  // 1. TARGET AUDIENCE (Siapa yang terima?)
+  // =================================================
   target: { 
     type: String, 
-    enum: ['all', 'user'], // 'all' = Broadcast, 'user' = Personal
+    enum: ['all', 'user'], // 'all' = Broadcast ke semua, 'user' = Spesifik 1 orang
     required: true,
-    default: 'all' 
+    default: 'user' 
   },
   
-  // --- SEGMENTASI (Khusus Broadcast) ---
+  // Jika target='user', field ini WAJIB diisi
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', // Relasi ke tabel User
+    default: null 
+  },
+
+  // Jika target='all', field ini menentukan segmen (misal: Info khusus user Premium)
   targetGroup: { 
     type: String, 
     enum: ['all', 'free', 'premium'], 
     default: 'all' 
   },
 
-  // --- TARGET PERSONAL ---
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', // Pastikan Referensi Huruf Besar (User.js)
-    default: null 
+  // =================================================
+  // 2. KONTEN & RELASI
+  // =================================================
+  title: { 
+    type: String, 
+    required: [true, 'Judul notifikasi wajib diisi'] 
   },
+  
+  message: { 
+    type: String, 
+    required: [true, 'Pesan notifikasi wajib diisi'] 
+  },
+  
+  link: { 
+    type: String, 
+    default: null 
+  }, // Link redirect jika diklik (misal ke /site/billing)
 
-  // --- RELASI TRANSAKSI ---
+  // Relasi ke Transaksi (Opsional, agar bisa diklik lari ke invoice)
   transactionId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Transaction', // Pastikan Referensi Huruf Besar (Transaction.js)
+    ref: 'Transaction',
     default: null 
   },
 
-  // --- KONTEN ---
-  title: { type: String, required: true },
-  message: { type: String, required: true },
-  link: { type: String, default: null }, 
+  // =================================================
+  // 3. STYLING & STATUS
+  // =================================================
   
-  // Kategori (Menentukan Icon di UI)
+  // Menentukan ICON apa yang muncul di UI
   category: {
     type: String,
     enum: ['billing', 'academy', 'promo', 'system', 'security'],
     default: 'system'
   },
 
-  // Tipe Styling (Menentukan Warna Background/Border)
+  // Menentukan WARNA background/border (Hijau, Merah, Biru, Kuning)
   type: { 
     type: String, 
     enum: ['info', 'success', 'warning', 'danger'], 
     default: 'info' 
   },
   
-  // --- STATUS ---
-  isRead: { type: Boolean, default: false }, 
+  isRead: { 
+    type: Boolean, 
+    default: false 
+  }, 
   
-  // Tanggal Kadaluarsa (Auto Delete)
+  // =================================================
+  // 4. HOUSEKEEPING (Auto Delete)
+  // =================================================
+  // Jika diisi tanggal, notifikasi akan otomatis terhapus dari DB setelah tanggal tersebut
   expiresAt: { type: Date, default: null },
 
 }, { 
-  timestamps: true // Otomatis handle createdAt & updatedAt
+  timestamps: true // Otomatis buat field createdAt & updatedAt
 });
 
-// INDEXING PERFORMANCE
-// 1. Agar load notifikasi user cepat
+// --- PERFORMANCE INDEXING ---
+
+// 1. Agar query notifikasi per user cepat (PENTING UNTUK DASHBOARD)
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 
-// 2. TTL INDEX: Otomatis hapus dokumen jika expiresAt sudah lewat (Housekeeping)
+// 2. Agar fitur Auto Delete (TTL) bekerja
+// MongoDB akan otomatis menghapus dokumen jika waktu sekarang > expiresAt
 NotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-export default mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
+// Cek apakah model sudah ada (untuk mencegah overwrite di Next.js)
+const Notification = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);
+
+export default Notification;
