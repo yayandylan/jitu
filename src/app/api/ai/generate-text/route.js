@@ -3,11 +3,12 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
+import { getRealTimeNews } from '@/lib/newsScraper'; // <--- Import Scraper Baru
 
 // --- KONFIGURASI BIAYA ---
 const CREDIT_COST = 50;
 
-// --- HELPER: GET USER ID DARI TOKEN ---
+// --- HELPER: GET USER ID ---
 const getUserId = () => {
     const token = cookies().get('token')?.value;
     if (!token) return null;
@@ -17,27 +18,7 @@ const getUserId = () => {
     } catch (error) { return null; }
 };
 
-// --- 1. FUNGSI PENCARI BERITA ASLI (GOOGLE NEWS RSS) ---
-async function getRealTimeNews(query) {
-    try {
-        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=id-ID&gl=ID&ceid=ID:id`;
-        const res = await fetch(rssUrl);
-        const text = await res.text();
-        
-        const items = text.match(/<item>[\s\S]*?<\/item>/g)?.slice(0, 3) || [];
-        const newsData = items.map(item => {
-            const title = item.match(/<title>(.*?)<\/title>/)?.[1];
-            const cleanTitle = title?.split(' - ')[0];
-            return `- ${cleanTitle}`;
-        }).join("\n");
-
-        return newsData || "Data berita tidak tersedia, gunakan pengetahuan umum.";
-    } catch (e) {
-        return "Gagal mengambil berita, gunakan pengetahuan umum.";
-    }
-}
-
-// --- BAGIAN UMUM: VISUAL & SAFETY RULES (Digunakan di kedua mode) ---
+// --- BAGIAN UMUM: VISUAL & SAFETY RULES ---
 const COMMON_RULES = `
 🎨 VISUAL IDENTITY (DESIGN CONTEXT):
 - **themeColor**: Pilih kode HEX warna yang mewakili emosi topik.
@@ -107,18 +88,22 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    // Tangkap parameter 'mode' ('single' atau 'carousel')
     const { prompt, mode = 'carousel' } = body; 
 
     if (!process.env.OPENROUTER_API_KEY) return NextResponse.json({ success: false, message: "API Key Error" }, { status: 500 });
 
-    // 2. AMBIL BERITA
+    // 2. AMBIL BERITA (Menggunakan Lib External)
     let newsContext = "";
-    try { newsContext = await getRealTimeNews(prompt); } catch(e) { console.log("News Ignored"); }
+    try { 
+        console.log(`🔍 Searching news for: ${prompt}`);
+        const fetchedNews = await getRealTimeNews(prompt);
+        if (fetchedNews) newsContext = fetchedNews;
+        else console.log("⚠️ No specific news found.");
+    } catch(e) { console.log("News Scraper Error Ignored"); }
 
     // 3. TENTUKAN SYSTEM PROMPT BERDASARKAN MODE
     const SELECTED_SYSTEM_PROMPT = mode === 'single' ? SINGLE_POST_PERSONA : CAROUSEL_PERSONA;
-    const USER_INSTRUCTION = `Topik: "${prompt}".\nFakta Berita: \n${newsContext}\n\nInstruksi: Buat konten ${mode === 'single' ? 'SINGLE POST (1 Gambar)' : 'CAROUSEL (Banyak Slide)'} yang viral!`;
+    const USER_INSTRUCTION = `Topik: "${prompt}".\nFakta Berita Terkini (Gunakan sebagai dasar fakta): \n${newsContext}\n\nInstruksi: Buat konten ${mode === 'single' ? 'SINGLE POST (1 Gambar)' : 'CAROUSEL (Banyak Slide)'} yang viral!`;
 
     const models = ["google/gemini-1.5-flash", "openai/gpt-4o-mini"];
     let successResult = null;
@@ -159,13 +144,13 @@ export async function POST(req) {
     }
 
     if (successResult) {
-        // 5. POTONG POIN
+        // 5. POTONG POIN SETELAH SUKSES
         await User.findByIdAndUpdate(userId, { $inc: { credits: -CREDIT_COST } });
         return NextResponse.json({ success: true, result: successResult });
     } else {
         const fallbackJSON = JSON.stringify({
             headline: "Topik Sedang Trending",
-            caption: "Maaf, sistem mendeteksi topik ini sedang hangat atau sensitif. Silakan coba lagi.",
+            caption: "Maaf, sistem mendeteksi topik ini sedang hangat atau sensitif. Silakan coba lagi nanti.",
             themeColor: "#FFD700",
             artStyle: "cinematic dark",
             slidesContent: []
