@@ -30,18 +30,19 @@ const getModelCategory = (modelId) => {
   return { label: 'GEN', desc: 'General LLM', icon: <Brain size={10} />, style: 'bg-blue-50 text-blue-600 border-blue-100' };
 };
 
-// --- 2. DROPDOWN COMPONENT (POP OUT FIX) ---
+// --- 2. DROPDOWN COMPONENT ---
 function AIModelSelect({ options = [], value, onChange, loading }) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   
+  // Pastikan options unik berdasarkan ID
   const safeOptions = Array.isArray(options) ? options : [];
+  
   const selectedModel = safeOptions.find(o => o.id === value);
   const categoryInfo = selectedModel ? getModelCategory(selectedModel.id) : null;
   
-  // Filter Logic (Limit 50 hasil)
   const filteredOptions = safeOptions.filter(option => 
     (option.name || "").toLowerCase().includes(search.toLowerCase()) || 
     (option.id || "").toLowerCase().includes(search.toLowerCase())
@@ -53,7 +54,6 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Auto focus search saat dibuka
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
         setTimeout(() => searchInputRef.current.focus(), 100);
@@ -96,11 +96,10 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
         <ChevronDown size={16} className={`text-slate-400 shrink-0 ${isOpen ? 'rotate-180 text-blue-500' : ''} transition-transform duration-300 group-hover:text-blue-500`} />
       </button>
 
-      {/* DROPDOWN MENU (POP OUT - Z-INDEX TINGGI) */}
+      {/* DROPDOWN MENU */}
       {isOpen && (
         <div className="absolute z-[9999] top-full left-1/2 -translate-x-1/2 mt-2 w-[110%] bg-white border border-slate-200 shadow-2xl rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ring-1 ring-black/5"> 
           
-          {/* 1. SEARCH INPUT (STICKY TOP) */}
           <div className="p-3 border-b border-slate-100 bg-slate-50 relative">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -115,7 +114,6 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
             </div>
           </div>
 
-          {/* 2. LIST OPTIONS */}
           <div className="max-h-[300px] overflow-y-auto p-2 space-y-1 custom-scrollbar bg-white">
             {filteredOptions.length === 0 ? (
                 <div className="p-6 text-center">
@@ -131,12 +129,9 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
                             onClick={() => { onChange(option.id); setIsOpen(false); setSearch(""); }} 
                             className={`p-3 rounded-lg cursor-pointer flex gap-3 items-start transition-all group ${isSelected ? 'bg-blue-50 border border-blue-100' : 'hover:bg-slate-50 border border-transparent'}`}
                         >
-                            {/* Icon Kategori */}
                             <div className={`mt-0.5 px-1.5 py-1 rounded text-[8px] font-black border uppercase h-fit ${cat.style}`}>
                                 {cat.label}
                             </div>
-                            
-                            {/* Info Model (FULL NAME WRAPPING) */}
                             <div className="flex-1 min-w-0">
                                 <div className="text-[11px] font-bold text-slate-800 leading-snug break-words whitespace-normal mb-1">
                                     {option.name}
@@ -144,7 +139,6 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
                                 <div className="text-[10px] text-slate-500 font-mono break-all leading-tight">
                                     {option.id}
                                 </div>
-                                {/* Harga */}
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">
                                         In: <span className="font-bold text-slate-700">{option.perTokenPrompt ? `$${option.perTokenPrompt}/1k` : '-'}</span>
@@ -154,8 +148,6 @@ function AIModelSelect({ options = [], value, onChange, loading }) {
                                     </span>
                                 </div>
                             </div>
-
-                            {/* Check Icon */}
                             {isSelected && <div className="mt-1"><Check size={14} className="text-blue-600" /></div>}
                         </div>
                     );
@@ -215,8 +207,28 @@ export default function ToolConfig() {
           fetch('/api/admin/tools').then(r => r.ok ? r.json() : []), 
           fetch('/api/admin/models').then(r => r.ok ? r.json() : [])
       ]);
-      setTools(Array.isArray(tRes) ? tRes : []);
-      setModels(Array.isArray(mRes) ? mRes : []);
+
+      const rawTools = Array.isArray(tRes) ? tRes : [];
+      const rawModels = Array.isArray(mRes) ? mRes : [];
+
+      // --- FILTER DUPLIKAT (Fixing Double Render) ---
+      // Kita filter berdasarkan 'slug' agar hanya 1 tool per slug yang tampil
+      const uniqueTools = rawTools.filter((tool, index, self) =>
+        index === self.findIndex((t) => (
+           t.slug === tool.slug
+        ))
+      );
+
+      // Kita filter model juga biar aman
+      const uniqueModels = rawModels.filter((model, index, self) =>
+        index === self.findIndex((m) => (
+           m.id === model.id
+        ))
+      );
+
+      setTools(uniqueTools);
+      setModels(uniqueModels);
+
     } catch (err) { console.error("Error fetching data"); } finally { setLoading(false); }
   };
 
@@ -293,7 +305,6 @@ export default function ToolConfig() {
 
       {/* PROFIT SIMULATOR (WITH SAVE BUTTON) */}
       <div className="bg-slate-900 p-6 md:p-8 rounded-[2rem] text-white shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative overflow-hidden">
-        {/* Dekorasi Background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
         <div className="flex items-center gap-4 z-10">
@@ -325,13 +336,12 @@ export default function ToolConfig() {
         </div>
       </div>
 
-      {/* TOOLS GRID - FIXED OVERFLOW FOR DROPDOWN */}
+      {/* TOOLS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {tools.map((tool, index) => {
           const { hpp, profit, margin } = calculateMargin(tool);
           return (
-            // PERUBAHAN UTAMA DI SINI: TIDAK ADA overflow-hidden AGAR DROPDOWN MUNCUL
-            <div key={tool._id || index} className={`bg-white rounded-[2rem] border shadow-sm p-6 flex flex-col gap-5 group transition-all duration-300 relative ${tool.isActive ? 'border-slate-200 hover:border-blue-300 hover:shadow-md' : 'border-slate-100 opacity-75 grayscale hover:grayscale-0'}`}>
+            <div key={tool.slug || index} className={`bg-white rounded-[2rem] border shadow-sm p-6 flex flex-col gap-5 group transition-all duration-300 relative ${tool.isActive ? 'border-slate-200 hover:border-blue-300 hover:shadow-md' : 'border-slate-100 opacity-75 grayscale hover:grayscale-0'}`}>
                 
                 {/* Header Card */}
                 <div className="flex items-center gap-4 relative z-10">

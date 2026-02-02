@@ -9,7 +9,7 @@ import {
   ScanEye, Image as ImageIcon, BarChart2, Calculator, 
   LogOut, Zap, ShieldCheck, Wallet, Plus, Settings,
   Menu, X, LayoutTemplate, 
-  Lock, Flame, Sparkles, Crown
+  Lock, Flame, Sparkles, Crown, Share2
 } from 'lucide-react';
 
 const poppins = Poppins({ 
@@ -45,6 +45,17 @@ export default function DashboardLayout({ children }) {
     { name: 'Validasi Market', href: '/site/tools/validasi-market', icon: <Target size={20} />, isFree: true },
     { name: 'Magic Ad Script', href: '/site/tools/magic-ad-script', icon: <Clapperboard size={20} />, isFree: true },
     
+    // --- UPDATE: MENAMBAHKAN FITUR SOSMED ---
+    { section: 'SOCIAL MEDIA' },
+    { 
+        name: 'Generate Post', 
+        href: '/site/tools/fb-autopilot', 
+        icon: <Share2 size={20} />, // Icon Share agar relevan dengan sosmed
+        badge: 'NEW', 
+        isFree: false // false = Wajib Premium (Terkunci untuk free user)
+    },
+    // ----------------------------------------
+
     { section: 'VISUAL & AUDIT (AI)' },
     { name: 'Ad Reviewer', href: '/site/tools/ad-review', icon: <ScanEye size={20} />, badge: 'NEW', isFree: false },
     { name: 'Analisis Iklan', href: '/site/tools/analisis-iklan', icon: <BarChart2 size={20} />, isFree: false },

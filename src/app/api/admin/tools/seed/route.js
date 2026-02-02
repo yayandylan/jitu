@@ -13,9 +13,10 @@ async function isAdminAuthorized() {
   if (!token) return false;
   try {
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    // Cek Role di Token & Database (Double Check)
+    // Cek Role di Token
     if (decoded.role === 'admin') return true;
     
+    // Cek Role di DB (Double Check)
     await connectDB();
     const user = await User.findById(decoded.userId);
     return user && user.role === 'admin';
@@ -24,16 +25,17 @@ async function isAdminAuthorized() {
   }
 }
 
-export async function POST() { 
+// --- LOGIKA UTAMA SEEDING (DIPISAH AGAR BISA DIPANGGIL GET & POST) ---
+async function runSeed() {
   // 1. CEK IZIN ADMIN
   if (!(await isAdminAuthorized())) {
-    return NextResponse.json({ message: 'Akses ditolak. Hanya Admin yang boleh melakukan Seeding.' }, { status: 403 });
+    return NextResponse.json({ message: 'Akses ditolak. Login sebagai Admin.' }, { status: 403 });
   }
 
   try {
     await connectDB();
 
-    // DAFTAR MASTER TOOLS (Sesuai dengan Logic API yang sudah kita buat)
+    // DAFTAR MASTER TOOLS LENGKAP
     const tools = [
       {
         slug: 'riset-produk',
@@ -64,15 +66,15 @@ export async function POST() {
         name: 'Landing Page Builder',
         category: 'TOOLS UTAMA',
         creditCost: 80,
-        aiModel: 'openai/gpt-4o', // Butuh model pintar untuk coding HTML
+        aiModel: 'openai/gpt-4o', 
         isActive: true
       },
       {
-        slug: 'audit-iklan-lp', // PENTING: Slug ini harus sama dengan logic di api/ai/vision
+        slug: 'audit-iklan-lp',
         name: 'Audit Funnel (LP vs Ads)',
         category: 'TOOLS VISION',
         creditCost: 75,
-        aiModel: 'openai/gpt-4o', // Butuh Vision (Melihat Gambar)
+        aiModel: 'openai/gpt-4o', 
         isActive: true
       },
       {
@@ -80,7 +82,7 @@ export async function POST() {
         name: 'Analisis Dashboard Iklan',
         category: 'TOOLS VISION',
         creditCost: 75,
-        aiModel: 'openai/gpt-4o', // Butuh Vision (Membaca Angka Screenshot)
+        aiModel: 'openai/gpt-4o', 
         isActive: true
       },
       {
@@ -88,26 +90,36 @@ export async function POST() {
         name: 'Kalkulator Ads',
         category: 'UTILITY',
         creditCost: 20,
-        aiModel: 'openai/gpt-3.5-turbo', // Cukup model murah
+        aiModel: 'openai/gpt-3.5-turbo',
         isActive: true
       },
+      // --- TOOL PENTING UNTUK GAMBAR ---
       {
-        slug: 'generate-gambar',
-        name: 'Generate Gambar AI',
-        category: 'COMING SOON',
-        creditCost: 100,
-        aiModel: 'black-forest-labs/flux-1-schnell', // Model Gambar
-        isActive: false // Masih Coming Soon
+        slug: 'generate-image', 
+        name: 'AI Image Generator',
+        category: 'TOOLS VISUAL',
+        creditCost: 50,
+        aiModel: 'black-forest-labs/flux-1-schnell',
+        isActive: true 
+      },
+      // --- TOOL PENTING UNTUK FB AUTOPILOT ---
+      {
+        slug: 'fb-autopilot', 
+        name: 'FB Autopilot Creator',
+        category: 'AGENCY TOOLS',
+        creditCost: 150, 
+        aiModel: 'openai/gpt-4o-mini', 
+        isActive: true
       },
     ];
 
-    // LAKUKAN OPERASI UPSERT (Update jika ada, Insert jika belum)
+    // LAKUKAN OPERASI BULK WRITE (Update jika ada, Insert jika baru)
     const operations = tools.map(tool => ({
       updateOne: {
         filter: { slug: tool.slug },
         update: { 
           $set: tool,
-          $setOnInsert: { costPerToken: 0 } // Default HPP 0
+          $setOnInsert: { costPerToken: 0 } 
         },
         upsert: true
       }
@@ -117,11 +129,12 @@ export async function POST() {
 
     return NextResponse.json({ 
       success: true,
-      message: `Database Tools berhasil disinkronkan!`,
+      message: `Database berhasil di-update!`,
       details: {
-        totalDefinitions: tools.length,
+        total: tools.length,
         modified: result.modifiedCount,
-        inserted: result.upsertedCount
+        inserted: result.upsertedCount,
+        matched: result.matchedCount
       }
     });
 
@@ -129,4 +142,14 @@ export async function POST() {
     console.error("Seed Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// --- EXPORT METHOD GET & POST ---
+// Agar Bapak bisa membukanya lewat Browser (GET) atau Postman (POST)
+export async function GET() {
+  return runSeed();
+}
+
+export async function POST() {
+  return runSeed();
 }
