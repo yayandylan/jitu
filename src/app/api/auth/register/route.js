@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/db'; 
 import User from '@/models/User';
-import nodemailer from 'nodemailer'; // Kita pakai nodemailer langsung untuk OTP
+import nodemailer from 'nodemailer'; 
 
 export async function POST(req) {
   try {
@@ -23,9 +23,7 @@ export async function POST(req) {
       if (userExists.isVerified) {
           return NextResponse.json({ message: 'Email sudah terdaftar. Silakan login.' }, { status: 400 });
       } 
-      // Jika user ada tapi BELUM verified, kita bisa hapus yang lama (opsional), 
-      // atau tolak saja biar dia lanjut verifikasi yang lama. 
-      // Untuk keamanan, kita tolak saja.
+      // Jika user ada tapi BELUM verified, tolak agar user tidak bingung (atau bisa diarahkan untuk resend OTP di frontend nanti)
       return NextResponse.json({ message: 'Email sudah terdaftar tapi belum diverifikasi.' }, { status: 400 });
     }
 
@@ -38,7 +36,6 @@ export async function POST(req) {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // 4. Simpan User (STATUS: BELUM AKTIF / UNVERIFIED)
-    // Note: Credits 0 dulu, bonus 500 diberikan nanti saat verifikasi berhasil.
     const newUser = new User({
       name,
       email: normalizedEmail,
@@ -53,46 +50,45 @@ export async function POST(req) {
 
     await newUser.save();
 
-    // 5. KIRIM EMAIL OTP
+    // 5. KIRIM EMAIL OTP (CONFIG GMAIL)
     try {
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        secure: true, // true untuk port 465
+        service: 'gmail', // Menggunakan preset layanan Gmail
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: process.env.GMAIL_USER,        // Email Gmail Anda
+          pass: process.env.GMAIL_APP_PASSWORD // App Password Gmail Anda
         },
       });
 
       await transporter.sendMail({
-        from: process.env.SMTP_FROM,
+        from: `"Jitu Digital Team" <${process.env.GMAIL_USER}>`, // Nama pengirim terlihat profesional
         to: normalizedEmail,
         subject: '🔐 Kode Verifikasi Jitu Digital',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-              <h2 style="color: #2563EB;">Verifikasi Akun Anda</h2>
+              <h2 style="color: #2563EB; text-align: center;">Verifikasi Akun Anda</h2>
               <p>Halo <b>${name}</b>,</p>
-              <p>Terima kasih telah mendaftar. Untuk mencegah penyalahgunaan, silakan masukkan kode berikut untuk mengaktifkan akun Anda:</p>
+              <p>Terima kasih telah mendaftar. Untuk mengaktifkan akun Anda, silakan masukkan kode verifikasi berikut:</p>
               
-              <div style="background-color: #F3F4F6; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0;">
+              <div style="background-color: #F3F4F6; padding: 20px; border-radius: 10px; text-align: center; margin: 30px 0;">
                 <span style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: #1E293B;">${otp}</span>
               </div>
               
-              <p>Kode ini berlaku selama 10 menit.</p>
-              <p style="font-size: 12px; color: #999; margin-top: 30px;">Jika Anda tidak merasa mendaftar di Jitu Digital, abaikan email ini.</p>
+              <p style="text-align: center; color: #64748B;">Kode ini berlaku selama 10 menit.</p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+              <p style="font-size: 12px; color: #999; text-align: center;">Jitu Digital Automation Team</p>
           </div>
         `,
       });
 
     } catch (emailError) {
       console.error("⚠️ Gagal kirim OTP:", emailError);
-      // Opsional: Hapus user jika email gagal terkirim agar bisa daftar ulang
+      // Hapus user jika email gagal terkirim agar user bisa mencoba daftar ulang
       await User.findByIdAndDelete(newUser._id);
-      return NextResponse.json({ message: 'Gagal mengirim email verifikasi. Cek koneksi SMTP.' }, { status: 500 });
+      return NextResponse.json({ message: 'Gagal mengirim email verifikasi. Pastikan email Anda benar.' }, { status: 500 });
     }
 
-    // Return Success agar Frontend pindah ke Step 2 (Input OTP)
+    // Return Success
     return NextResponse.json({ success: true, message: 'Kode OTP dikirim' }, { status: 201 });
 
   } catch (error) {
