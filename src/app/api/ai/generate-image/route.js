@@ -8,7 +8,7 @@ import User from '@/models/User';
 // --- KONFIGURASI BIAYA ---
 const CREDIT_COST = 50;
 
-// --- HELPER: GET USER ID DARI TOKEN ---
+// --- HELPER: GET USER ID ---
 const getUserId = () => {
     const token = cookies().get('token')?.value;
     if (!token) return null;
@@ -18,7 +18,7 @@ const getUserId = () => {
     } catch (error) { return null; }
 };
 
-// --- HELPER: WRAP TEXT (SMART FIT & ALIGN) ---
+// --- HELPER: WRAP TEXT ---
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, align = 'left', maxLines = 10) {
     const words = text.split(' ');
     let line = '';
@@ -30,11 +30,9 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, align = 'left', maxLine
         const metrics = ctx.measureText(testLine);
         if (metrics.width > maxWidth && n > 0) {
             if (lineCount >= maxLines - 1) { line += "..."; break; }
-            
             if (align === 'center') ctx.fillText(line, x + (maxWidth - ctx.measureText(line).width) / 2, currentY);
             else if (align === 'right') ctx.fillText(line, x + maxWidth - ctx.measureText(line).width, currentY);
             else ctx.fillText(line, x, currentY);
-            
             line = words[n] + ' ';
             currentY += lineHeight;
             lineCount++;
@@ -42,15 +40,13 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, align = 'left', maxLine
             line = testLine;
         }
     }
-    // Render baris terakhir
     if (align === 'center') ctx.fillText(line, x + (maxWidth - ctx.measureText(line).width) / 2, currentY);
     else if (align === 'right') ctx.fillText(line, x + maxWidth - ctx.measureText(line).width, currentY);
     else ctx.fillText(line, x, currentY);
-    
     return currentY + lineHeight - y; 
 }
 
-// --- HELPER: HITUNG BARIS TEXT (UNTUK AUTO SIZE FONT) ---
+// --- HELPER: HITUNG BARIS ---
 function getWrappedTextLines(ctx, text, maxWidth) {
     const words = text.split(' ');
     let lines = [];
@@ -66,7 +62,7 @@ function getWrappedTextLines(ctx, text, maxWidth) {
 
 export async function POST(req) {
   try {
-    // 1. CEK AUTH & SALDO DATABASE
+    // 1. CEK AUTH & SALDO
     await connectDB();
     const userId = getUserId();
     if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -76,16 +72,16 @@ export async function POST(req) {
         return NextResponse.json({ message: "Poin tidak cukup. Silakan Top Up." }, { status: 402 });
     }
 
-    const apiKey = process.env.POLLINATIONS_API_KEY;
-    if (!apiKey) return NextResponse.json({ message: "API Key Error" }, { status: 500 });
-
-    // 2. TERIMA DATA DARI FRONTEND
+    // 2. TERIMA DATA
     const body = await req.json();
     const { prompt, title, slideTitle, slideBody, theme, ratio = "1:1", slideIndex = 0, customVisual, themeColor, artStyle } = body; 
 
     if (!prompt) return NextResponse.json({ message: "Prompt kosong" }, { status: 400 });
 
-    // 3. SETUP DIMENSI & ORIENTASI
+    // 3. SETUP API KEY (Opsional, agar tidak error jika env kosong)
+    const apiKey = process.env.POLLINATIONS_API_KEY || ""; 
+
+    // 4. SETUP DIMENSI
     let width = 1024, height = 1024;
     let orientationPrompt = "centered composition";
     if (ratio === "4:5") { width = 1080; height = 1350; orientationPrompt = "vertical portrait"; } 
@@ -97,26 +93,34 @@ export async function POST(req) {
 
     console.log(`📸 Generating Slide ${slideIndex+1} | Style: ${artStyle || 'Default'}`);
 
-    // 4. RACIKAN PROMPT VISUAL (DINAMIS SESUAI TEMA)
+    // 5. GENERATE GAMBAR
     const styleKeyword = artStyle || "cinematic lighting, highly detailed, photorealistic, sharp focus";
-    
     let visualObject = customVisual || prompt;
     if (isFirstSlide && !customVisual) {
-        // Jika cover dan tidak ada visual khusus, fokus ke ekspresi/emosi
         visualObject = `${prompt}, emotional expressive face, dramatic angle, visual storytelling`; 
     }
 
+    // Gunakan Model FLUX (Terbaik saat ini)
     const fullPrompt = `${visualObject}, ${styleKeyword}, ${orientationPrompt}, 8k resolution, masterpiece`;
-    
-    // Seed unik per slide agar gambar variatif
     const randomSeed = Math.floor(Math.random() * 1000000) + slideIndex;
-    const apiUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(fullPrompt)}?width=${width}&height=${height}&seed=${randomSeed}&model=flux&nologo=true&enhance=true`;
+    
+    // URL Endpoint Pollinations
+    const apiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${width}&height=${height}&seed=${randomSeed}&model=flux&nologo=true&enhance=true`;
 
-    const response = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${apiKey}` } });
-    if (!response.ok) throw new Error("Gagal fetch Pollinations");
+    // Fetch dengan Header Auth (Hanya Jika Key Ada)
+    const fetchOptions = { method: 'GET' };
+    if (apiKey) {
+        fetchOptions.headers = { 'Authorization': `Bearer ${apiKey}` };
+    }
+
+    const response = await fetch(apiUrl, fetchOptions);
+    if (!response.ok) {
+        console.error("Pollinations Error:", response.statusText);
+        throw new Error("Gagal mengambil gambar dari AI Server.");
+    }
     const imageBuffer = await response.arrayBuffer();
 
-    // 5. EDITING CANVAS (DESAIN MENYESUAIKAN WARNA TEMA)
+    // 6. CANVAS DRAWING
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     const bgImage = await loadImage(Buffer.from(imageBuffer));
@@ -125,16 +129,10 @@ export async function POST(req) {
 
     const scale = width / 1024; 
     const margin = Math.floor(60 * scale);
-    
-    // Warna Aksen dari AI (atau default Emas)
     const accentColor = themeColor || '#FFD700'; 
 
     if (isFirstSlide) {
-        // ==========================================
-        // SLIDE 1 (COVER) & SINGLE POST STYLE
-        // ==========================================
-        
-        // Gradient Bawah (Hitam Transparan Netral)
+        // SLIDE 1: COVER
         const gradient = ctx.createLinearGradient(0, height - (height * 0.7), 0, height);
         gradient.addColorStop(0, "rgba(0,0,0,0)");
         gradient.addColorStop(0.5, "rgba(0,0,0,0.6)");
@@ -146,7 +144,6 @@ export async function POST(req) {
         ctx.font = `bold ${fontSize}px Arial`;
         const boxWidth = width - (margin * 2);
         
-        // Auto Fit Font Judul
         let lines = getWrappedTextLines(ctx, displayTitle, boxWidth - margin);
         while (lines.length > 3 && fontSize > 30) { 
             fontSize -= 4; ctx.font = `bold ${fontSize}px Arial`; 
@@ -156,13 +153,11 @@ export async function POST(req) {
         const textBlockHeight = lines.length * (fontSize * 1.2);
         const startY = height - margin - textBlockHeight - (100 * scale);
 
-        // Dekorasi Garis Vertikal (Warna Tema)
         ctx.fillStyle = accentColor;
         ctx.shadowColor = accentColor; ctx.shadowBlur = 15;
         ctx.fillRect(margin, startY, 10 * scale, textBlockHeight + (20*scale));
         ctx.shadowBlur = 0;
 
-        // Render Judul (Putih)
         ctx.fillStyle = '#FFFFFF';
         ctx.textAlign = 'left';
         ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 10;
@@ -174,21 +169,14 @@ export async function POST(req) {
         });
         ctx.shadowColor = 'transparent';
 
-        // Label Brand
         ctx.font = `bold ${Math.floor(24*scale)}px Arial`;
         ctx.fillStyle = accentColor; 
         ctx.fillText(brandText + "  •  Geser 👉", margin + (30*scale), startY - (20*scale));
 
     } else {
-        // ==========================================
-        // SLIDE 2+ (CAROUSEL CONTENT)
-        // ==========================================
-        
-        // Overlay Gelap 80% (Agar teks selalu terbaca)
+        // SLIDE 2+: CONTENT
         ctx.fillStyle = 'rgba(10, 10, 10, 0.8)';
         ctx.fillRect(0, 0, width, height);
-
-        // Border Tipis (Warna Tema)
         ctx.strokeStyle = accentColor;
         ctx.lineWidth = 2 * scale;
         ctx.strokeRect(margin/2, margin/2, width - margin, height - margin);
@@ -196,7 +184,6 @@ export async function POST(req) {
         const centerX = width / 2;
         const centerY = (ratio === "9:16") ? height * 0.4 : height * 0.5;
 
-        // Judul Slide
         const textTitle = slideTitle ? slideTitle.toUpperCase() : displayTitle.toUpperCase();
         let titleSize = Math.floor(72 * scale);
         ctx.font = `bold ${titleSize}px Arial`;
@@ -209,43 +196,36 @@ export async function POST(req) {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FFFFFF'; 
-        ctx.shadowColor = accentColor; ctx.shadowBlur = 20; // Glow sesuai tema
+        ctx.shadowColor = accentColor; ctx.shadowBlur = 20; 
         
         let cursorY = centerY - ((titleLines.length * titleSize * 1.2) / 2) - (60 * scale);
         titleLines.forEach(l => { ctx.fillText(l, centerX, cursorY); cursorY += titleSize * 1.2; });
         
         ctx.shadowBlur = 0; 
-
-        // Garis Pemisah (Warna Tema)
         ctx.fillStyle = accentColor;
         ctx.fillRect(centerX - (40*scale), cursorY + (10*scale), 80*scale, 4*scale);
         cursorY += 70 * scale;
 
-        // Body Text
         if (slideBody) {
             let bodySize = Math.floor(36 * scale);
             ctx.font = `normal ${bodySize}px Arial`;
-            
             let bodyLines = getWrappedTextLines(ctx, slideBody, width - (margin * 3));
             while (bodyLines.length > 7 && bodySize > 20) {
                  bodySize -= 2; ctx.font = `normal ${bodySize}px Arial`;
                  bodyLines = getWrappedTextLines(ctx, slideBody, width - (margin * 3));
             }
-
             ctx.fillStyle = '#EEEEEE'; 
             bodyLines.forEach(l => { 
                 ctx.fillText(l, centerX, cursorY); 
                 cursorY += bodySize * 1.5; 
             });
         }
-
-        // Footer Brand
         ctx.fillStyle = accentColor;
         ctx.font = `bold ${Math.floor(20*scale)}px Arial`;
         ctx.fillText(brandText, centerX, height - (margin));
     }
 
-    // 6. POTONG POIN JIKA SUKSES
+    // 7. POTONG POIN SETELAH SUKSES
     await User.findByIdAndUpdate(userId, { $inc: { credits: -CREDIT_COST } });
 
     return NextResponse.json({ success: true, imageUrl: canvas.toDataURL('image/jpeg', 0.95) });
