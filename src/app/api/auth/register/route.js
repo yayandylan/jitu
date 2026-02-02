@@ -42,7 +42,7 @@ export async function POST(req) {
       password: hashedPassword,
       whatsapp: whatsapp || '-',
       role: 'user',
-      credits: 0, 
+      credits: 100, 
       isVerified: false,       // <--- PENTING: Belum aktif
       verificationCode: otp,   // <--- Simpan OTP
       verificationExpires: otpExpires
