@@ -8,7 +8,9 @@ import History from '@/models/History';
 import ToolConfig from '@/models/ToolConfig';
 import OpenAI from 'openai'; 
 
-const TIMEOUT_SEC = 30; // Timeout scraping
+export const dynamic = 'force-dynamic'; // Wajib untuk App Router
+
+const TIMEOUT_SEC = 30; // Timeout scraping LP
 
 // Helper: Ubah File ke Base64 Data URI
 const fileToDataUri = async (file) => {
@@ -17,9 +19,9 @@ const fileToDataUri = async (file) => {
   return `data:${file.type};base64,${buffer.toString('base64')}`;
 };
 
-// Helper: Scrape Teks LP (Simple Version)
+// Helper: Scrape Teks LP (Simple Version - Hemat Token)
 const scrapeLandingPage = async (url) => {
-  if (!url || !url.startsWith('http')) return ""; // Skip jika bukan URL valid
+  if (!url || !url.startsWith('http')) return ""; 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_SEC * 1000);
@@ -32,18 +34,18 @@ const scrapeLandingPage = async (url) => {
     if (!res.ok) throw new Error(`Gagal akses URL (${res.status})`);
     
     const html = await res.text();
-    // Bersihkan HTML tag agar hemat token
+    // Bersihkan HTML tag agar hemat token & hanya ambil teks konten
     const text = html
         .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, "")
         .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, "")
         .replace(/<[^>]+>/g, " ")
         .replace(/\s+/g, " ")
         .trim()
-        .slice(0, 5000); // Batasi 5000 karakter
+        .slice(0, 5000); // Batasi 5000 karakter agar tidak over-context
         
     return text || "Tidak ada teks yang bisa dibaca di LP.";
   } catch (err) { 
-      return `Gagal membaca LP: ${err.message}. Analisis berdasarkan link saja.`; 
+      return `(Gagal membaca isi LP: ${err.message}. Analisis akan dilakukan berdasarkan link & visual saja.)`; 
   }
 };
 
@@ -53,7 +55,11 @@ export async function POST(req) {
     const token = cookies().get('token')?.value;
     if (!token) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     
-    const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
+    } catch(e) { return NextResponse.json({ message: 'Token Invalid' }, { status: 401 }); }
+
     await connectDB();
 
     const user = await User.findById(decoded.userId);
@@ -62,12 +68,12 @@ export async function POST(req) {
     // 2. PARSE FORM DATA
     const formData = await req.formData();
     const file = formData.get('file');
-    const lpLink = formData.get('lpLink'); // Bisa berupa URL (Ad Review) atau Text Context (Analisis Iklan)
+    const lpLink = formData.get('lpLink'); // Bisa URL (Ad Review) atau Context Text (Analisis Iklan)
     const requestType = formData.get('type'); 
 
     if (!file) return NextResponse.json({ message: 'File (Gambar/Video) wajib diupload.' }, { status: 400 });
 
-    // 3. CONFIG CHECK
+    // 3. CONFIG CHECK (DB vs Hardcode Fallback)
     // Mapping frontend type ke database slug
     let toolSlug = requestType;
     if (requestType === 'analisis-iklan-visual') toolSlug = 'analisis-iklan'; 
@@ -75,7 +81,7 @@ export async function POST(req) {
     
     let toolConfig = await ToolConfig.findOne({ slug: toolSlug });
     
-    // Fallback Config
+    // Fallback Config jika DB belum disetting
     if (!toolConfig) {
         toolConfig = { 
             name: requestType === 'ad-review' ? 'Ad Review' : 'Analisis Iklan', 
@@ -84,7 +90,10 @@ export async function POST(req) {
         };
     }
 
-    if (user.credits < toolConfig.creditCost) return NextResponse.json({ message: 'Poin kurang. Topup dulu yuk!' }, { status: 402 });
+    // Admin Gratis, User Bayar
+    if (user.role !== 'admin' && user.credits < toolConfig.creditCost) {
+        return NextResponse.json({ message: 'Poin kurang. Topup dulu yuk!' }, { status: 402 });
+    }
 
     // 4. PREPARE DATA
     const fileDataUri = await fileToDataUri(file); 
@@ -94,29 +103,30 @@ export async function POST(req) {
     // SKENARIO 1: AUDIT DASHBOARD (Angka & Grafik)
     // ==========================================
     if (requestType === 'analisis-iklan-visual') {
-        const userContext = lpLink || "Tidak ada info tambahan."; // Di tool ini, lpLink dipakai untuk kirim Context
+        const userContext = lpLink || "Tidak ada info tambahan."; 
 
         systemPrompt = `
         ROLE: Kamu adalah Senior Media Buyer & Data Analyst (Meta/TikTok/Google Ads Expert).
         
         TUGAS: Analisis screenshot dashboard iklan yang diberikan user.
         
-        KONTEKS KAMPANYE DARI USER:
+        KONTEKS DARI USER:
         "${userContext}"
         
         OUTPUT DIAGNOSA (Markdown):
         # 📊 ANALISA PERFORMA
         
-        ## KONDISI: [BAGUS / SEDANG / BAHAYA]
+        ## STATUS: [🟢 SEHAT / 🟡 WARNING / 🔴 KRITIS]
         
-        ### 1. 🔍 Temuan Utama (Metrics)
-        (Baca angka di gambar: CTR, CPC, CPM, ROAS, dll. Komentari apakah mahal/murah berdasarkan standar industri dan konteks user)
+        ### 1. 🔍 Temuan Utama (Metrics Reading)
+        (Baca angka di gambar: CTR, CPC, CPM, ROAS, dll. Komentari apakah mahal/murah berdasarkan standar industri)
         
         ### 2. ⚠️ Masalah Terdeteksi
-        (Misal: CTR rendah = kreatif jelek, CPC mahal = audiens salah, dll)
+        (Misal: CTR rendah = kreatif jelek, CPM mahal = audiens sempit, dll)
         
-        ### 3. 💡 Rekomendasi Tindakan
-        (Scale up, Kill, atau Ganti Kreatif? Berikan saran spesifik)
+        ### 3. 💡 Rekomendasi Tindakan (Action Plan)
+        * **Short Term:** (Apa yang harus dilakukan hari ini? Kill/Scale?)
+        * **Long Term:** (Strategi perbaikan ke depan)
         
         Gaya bahasa: Analitis, Data-driven, To the point.
         `;
@@ -126,14 +136,14 @@ export async function POST(req) {
     // SKENARIO 2: AD REVIEW (Kreatif & LP)
     // ==========================================
     else {
-        // Scrape LP content hanya untuk Ad Review
+        // Scrape LP content untuk Ad Review
         let lpContent = await scrapeLandingPage(lpLink);
 
         systemPrompt = `
         ROLE: Kamu adalah "Jitu Funnel Doctor". Auditor Senior Digital Marketing.
         
         TUGAS:
-        Analisis file kreatif iklan (Gambar/Video) dan konten Landing Page yang diberikan.
+        Analisis file kreatif iklan (Gambar/Frame Video) dan konten Landing Page yang diberikan.
         
         INPUT DATA:
         1. **Creative:** File visual yang diupload user.
@@ -142,29 +152,29 @@ export async function POST(req) {
         
         OUTPUT DIAGNOSA (Markdown):
         
-        # 🩺 LAPORAN DIAGNOSA
+        # 🩺 LAPORAN DIAGNOSA IKLAN
         
         ## SKOR KESEHATAN: [0-100]
         **Status:** [WINNING / POTENTIAL / BONCOS]
         
         ### 1. 📢 Review Kreatif Iklan
-        * **Visual Hook:** (Komentari 3 detik pertama atau visual utama)
-        * **Pesan/Copy:** (Apakah teks di gambar/video terbaca dan persuasif?)
-        * **Relevansi:** (Apakah cocok untuk platform iklan?)
+        * **Visual Hook:** (Apakah visualnya 'Scroll-Stopping'? Beri nilai 1-10)
+        * **Clarity:** (Apakah pesan produk tersampaikan dalam 3 detik?)
+        * **Pain/Pleasure:** (Apakah menyentuh emosi audiens?)
         
-        ### 2. 🌐 Review Landing Page
+        ### 2. 🌐 Review Landing Page (Sinkronisasi)
         * **Message Match:** (Apakah janji di iklan SAMA dengan headline LP? Ini krusial!)
-        * **Copywriting LP:** (Komentari struktur penawaran di LP berdasarkan teks yang dibaca)
+        * **Flow & Copy:** (Apakah struktur LP meyakinkan? Baca konten LP yang dilampirkan)
         
-        ### 3. ⚠️ PENYAKIT UTAMA
-        (Sebutkan 1 hal fatal yang membuat iklan ini mungkin boncos)
+        ### 3. ⚠️ DIAGNOSA PENYAKIT
+        (Sebutkan 1 hal paling fatal yang membuat iklan ini berpotensi gagal)
         
         ### 4. 💊 RESEP PERBAIKAN
-        1. (Saran konkret 1)
-        2. (Saran konkret 2)
-        3. (Saran konkret 3)
+        1. (Saran konkret perbaikan visual)
+        2. (Saran konkret perbaikan copy/LP)
+        3. (Ide angle baru untuk ditest)
         
-        Gaya bahasa: Tegas, to the point, seperti dokter spesialis.
+        Gaya bahasa: Tegas, solutif, seperti dokter spesialis bedah iklan.
         `;
     }
 
@@ -179,7 +189,7 @@ export async function POST(req) {
     });
 
     const completion = await openai.chat.completions.create({
-        model: toolConfig.aiModel || "google/gemini-2.0-flash-exp:free",
+        model: toolConfig.aiModel || "google/gemini-2.0-flash-exp:free", // Default Model
         messages: [
             {
                 role: "user",
@@ -196,24 +206,27 @@ export async function POST(req) {
         ]
     });
 
-    const resultText = completion.choices[0].message.content;
+    const resultText = completion.choices?.[0]?.message?.content || "Gagal menganalisa. Coba lagi.";
 
-    // 7. TRANSAKSI & HISTORY
-    user.credits -= toolConfig.creditCost;
-    await user.save();
+    // 7. TRANSAKSI & HISTORY (Hanya potong jika bukan admin)
+    if (user.role !== 'admin') {
+        user.credits -= toolConfig.creditCost;
+        await user.save();
 
-    await Transaction.create({
-      userId: user._id,
-      type: 'out',
-      amount: toolConfig.creditCost,
-      description: `Vision AI: ${toolConfig.name}`,
-      status: 'success'
-    });
+        await Transaction.create({
+            userId: user._id,
+            type: 'out',
+            amount: toolConfig.creditCost,
+            description: `Vision AI: ${toolConfig.name}`,
+            status: 'success'
+        });
+    }
 
+    // Save History
     await History.create({
       userId: user._id,
       toolType: requestType, // 'analisis-iklan-visual' atau 'ad-review'
-      title: file.name, // Nama file sebagai judul history
+      title: file.name, 
       inputData: { lpLink: lpLink || '-', fileName: file.name },
       resultData: { text: resultText }
     });
@@ -222,10 +235,12 @@ export async function POST(req) {
 
   } catch (error) {
     console.error("Vision Error:", error);
-    // Handle error file terlalu besar (biasanya limit vercel 4.5MB)
-    if (error.message.includes("payload")) {
-        return NextResponse.json({ message: "Ukuran file terlalu besar. Max 4MB untuk serverless." }, { status: 413 });
+    
+    // Handle error payload too large (Vercel limit 4.5MB)
+    if (error.message && error.message.includes("payload")) {
+        return NextResponse.json({ message: "Ukuran file terlalu besar. Harap kompres file Anda (Max 4MB)." }, { status: 413 });
     }
-    return NextResponse.json({ message: "Gagal memproses AI. Coba file yang lebih kecil." }, { status: 500 });
+    
+    return NextResponse.json({ message: error.message || "Gagal memproses AI." }, { status: 500 });
   }
 }

@@ -13,10 +13,11 @@ export default function AdReviewPage() {
   // --- STATE ---
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [fileType, setFileType] = useState(null); 
+  const [fileType, setFileType] = useState(null); // 'image' | 'video'
   const [lpLink, setLpLink] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState("Mulai Diagnosa");
   const [result, setResult] = useState('');
   const [history, setHistory] = useState([]);
   const [activeHistoryId, setActiveHistoryId] = useState(null);
@@ -47,11 +48,89 @@ export default function AdReviewPage() {
     fetchHistory();
   }, []);
 
+  // --- HELPER: KOMPRESI GAMBAR (PENTING AGAR TIDAK ERROR "REQUEST TOO LARGE") ---
+  const compressImage = async (imageFile) => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = URL.createObjectURL(imageFile);
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Resize: Max Lebar 800px (Cukup untuk AI baca, hemat size)
+            const MAX_WIDTH = 800;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Kompres ke JPEG quality 0.7
+            canvas.toBlob((blob) => {
+                resolve(new File([blob], "compressed_image.jpg", { type: "image/jpeg" }));
+            }, "image/jpeg", 0.7);
+        };
+    });
+  };
+
+  // --- HELPER: VIDEO FRAME EXTRACTOR (DENGAN RESIZE) ---
+  const extractFramesFromVideo = async (videoFile) => {
+    setLoadingText("Mengekstrak Frame Video...");
+    return new Promise((resolve) => {
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(videoFile);
+        video.currentTime = 1; // Mulai dari detik ke-1 biar bukan layar hitam
+        
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const frames = [];
+
+        video.onloadeddata = () => {
+            // Resize Frame Video juga agar ringan
+            const MAX_WIDTH = 800;
+            let width = video.videoWidth;
+            let height = video.videoHeight;
+            if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+            }
+            canvas.width = width;
+            canvas.height = height;
+        };
+
+        const captureFrame = (time) => {
+            return new Promise((res) => {
+                video.currentTime = time;
+                video.onseeked = () => {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob((blob) => {
+                        res(new File([blob], `frame_${time}.jpg`, { type: "image/jpeg" }));
+                    }, "image/jpeg", 0.7);
+                };
+            });
+        };
+
+        video.oncanplay = async () => {
+            // Ambil 1 frame terbaik di tengah durasi
+            const midPoint = video.duration / 2;
+            const frame = await captureFrame(midPoint > 0 ? midPoint : 1);
+            frames.push(frame);
+            resolve(frames);
+        };
+    });
+  };
+
   // --- HANDLERS ---
   const handleFileChange = (e) => {
       const f = e.target.files[0];
       if (f) {
-          if (f.size > 50 * 1024 * 1024) return alert("File terlalu besar (Max 50MB)");
+          if (f.size > 100 * 1024 * 1024) return alert("File terlalu besar (Max 100MB)");
           setFile(f);
           setPreview(URL.createObjectURL(f));
           setFileType(f.type.startsWith('video/') ? 'video' : 'image');
@@ -63,26 +142,55 @@ export default function AdReviewPage() {
     if(!config.isActive) return alert("Fitur sedang maintenance.");
     if (!file || !lpLink) return alert("Mohon upload iklan & masukkan link LP!");
     
-    setLoading(true); setResult(''); setActiveHistoryId(null);
+    setLoading(true); 
+    setResult(''); 
+    setActiveHistoryId(null);
+    setLoadingText("Mengompres Media..."); // Info ke user
 
     const formData = new FormData();
-    formData.append('file', file);
     formData.append('lpLink', lpLink);
     formData.append('type', 'ad-review'); 
 
     try {
-      const res = await fetch('/api/ai/vision', { method: 'POST', body: formData });
-      const data = await res.json();
+        let fileToSend = file;
 
-      if (res.status === 402) { alert("Poin tidak cukup!"); setLoading(false); return; }
-      if (!res.ok) throw new Error(data.message || "Gagal analisa");
-      
-      setResult(data.result);
-      fetchHistory(); 
-      
-      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    } catch (err) { alert(err.message); } 
-    finally { setLoading(false); }
+        // 1. JIKA VIDEO: Ekstrak Frame & Resize
+        if (fileType === 'video') {
+            const frames = await extractFramesFromVideo(file);
+            fileToSend = frames[0]; // Ambil frame hasil ekstrak
+        } 
+        // 2. JIKA GAMBAR: Kompres dulu jika size > 1MB
+        else if (file.size > 1 * 1024 * 1024) { 
+            fileToSend = await compressImage(file);
+        }
+
+        formData.append('file', fileToSend);
+
+        setLoadingText("Sedang Menganalisa AI...");
+
+        const res = await fetch('/api/ai/vision', { method: 'POST', body: formData });
+        
+        // Handle Error JSON vs HTML (Request Too Large)
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error(`Gagal: File terlalu besar atau server error (${res.status}).`);
+        }
+
+        const data = await res.json();
+
+        if (res.status === 402) { alert("Poin tidak cukup!"); setLoading(false); return; }
+        if (!res.ok) throw new Error(data.message || "Gagal analisa");
+        
+        setResult(data.result);
+        fetchHistory(); 
+        
+        setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+
+    } catch (err) { 
+        console.error(err);
+        alert(err.message); 
+    } 
+    finally { setLoading(false); setLoadingText("Mulai Diagnosa"); }
   };
 
   const handleSelectHistory = (item) => {
@@ -239,7 +347,7 @@ export default function AdReviewPage() {
                 </div>
 
                 <button type="submit" disabled={loading || !file} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold uppercase text-xs tracking-widest shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50 group">
-                    {loading ? <Loader2 className="animate-spin" /> : <><Gauge size={18} className="group-hover:scale-110 transition-transform"/> MULAI DIAGNOSA</>}
+                    {loading ? <Loader2 className="animate-spin" /> : <><Gauge size={18} className="group-hover:scale-110 transition-transform"/> {loadingText}</>}
                 </button>
             </form>
         </div>
