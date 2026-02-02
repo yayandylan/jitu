@@ -9,12 +9,16 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     required: [true, 'Email harus diisi'], 
     unique: true,
-    lowercase: true // Memastikan email tersimpan huruf kecil semua agar tidak duplikat
+    lowercase: true 
   },
   password: { 
     type: String, 
     required: [true, 'Password harus diisi'], 
-    select: false // Password tidak akan ikut terpanggil saat kita melakukan query biasa (aman)
+    select: false 
+  },
+  whatsapp: { 
+    type: String, 
+    default: '-' 
   },
   role: { 
     type: String, 
@@ -22,17 +26,29 @@ const UserSchema = new mongoose.Schema({
     default: 'user' 
   },
   
-  // --- SISTEM POIN JITU DIGITAL ---
+  // --- SISTEM POIN ---
   credits: { 
     type: Number, 
-    default: 500, // Bonus pendaftaran otomatis
+    default: 0, // Default 0 (Bonus 500 diberikan setelah Verifikasi)
     min: 0 
   },
 
-  // --- STATUS PREMIUM (FREEMIUM LOGIC) ---
+  // --- STATUS PREMIUM ---
   isPremium: { 
     type: Boolean, 
     default: false 
+  },
+
+  // --- SISTEM VERIFIKASI (BARU) ---
+  isVerified: { 
+    type: Boolean, 
+    default: false // Default belum aktif
+  },
+  verificationCode: { 
+    type: String // Menyimpan kode OTP 6 digit
+  },
+  verificationExpires: { 
+    type: Date // Waktu kadaluarsa OTP
   },
 
   // --- PASSWORD RESET ---
@@ -44,14 +60,9 @@ const UserSchema = new mongoose.Schema({
     default: Date.now 
   },
 }, { 
-  // PENTING: Mengunci nama koleksi agar tetap 'users' (jamak) 
-  // Ini mencegah Mongoose membuat tabel baru bernama 'user' (tunggal) saat redeploy
   collection: 'users' 
 });
 
-// Penanganan Error "OverwriteModelError" saat Next.js melakukan Hot Reload
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
 export default User;
-
-//testing
