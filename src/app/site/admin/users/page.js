@@ -20,6 +20,9 @@ export default function ManageUsersPage() {
   const [editForm, setEditForm] = useState({ name: '', role: 'user', isPremium: false });
   const [userHistory, setUserHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Loading state khusus tombol aksi agar tidak double click
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 1. FETCH USERS
   const fetchUsers = async () => {
@@ -27,7 +30,6 @@ export default function ManageUsersPage() {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
-      // Handle berbagai format return API (array langsung atau object.users)
       const userData = Array.isArray(data.users) ? data.users : (Array.isArray(data) ? data : []);
       setUsers(userData);
     } catch (error) {
@@ -39,9 +41,8 @@ export default function ManageUsersPage() {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  // 2. SEARCH & FILTER LOGIC (SAFE MODE)
+  // 2. SEARCH & FILTER LOGIC
   const filteredUsers = users.filter(u => {
-    // Gunakan (u.name || '') untuk mencegah crash jika data null
     const nameMatch = (u.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const emailMatch = (u.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSearch = nameMatch || emailMatch;
@@ -76,6 +77,7 @@ export default function ManageUsersPage() {
   };
 
   const handleUpdateUser = async () => {
+    setIsSubmitting(true);
     try {
         const res = await fetch('/api/admin/users', {
             method: 'PATCH',
@@ -89,21 +91,40 @@ export default function ManageUsersPage() {
         });
         if(res.ok) { setModalType(null); alert("Data diperbarui!"); fetchUsers(); }
     } catch(err) { alert("Gagal update user"); }
+    finally { setIsSubmitting(false); }
   };
 
   // CREDIT ADJUSTMENT
   const openCreditModal = (user) => { setSelectedUser(user); setCreditForm({ amount: 0, type: 'add' }); setModalType('credit'); };
   
+  // --- [UPDATED] FUNCTION UPDATE CREDIT ---
   const handleUpdateCredit = async () => {
+    if(!creditForm.amount || creditForm.amount <= 0) return alert("Masukkan jumlah poin yang valid");
+    
+    setIsSubmitting(true);
     const amount = creditForm.type === 'add' ? Number(creditForm.amount) : -Number(creditForm.amount);
+    
     try {
         const res = await fetch('/api/admin/users', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ userId: selectedUser._id, action: 'adjust_credit', amount })
         });
-        if(res.ok) { setModalType(null); fetchUsers(); }
-    } catch(err) { console.error(err); }
+
+        if(res.ok) { 
+            setModalType(null); 
+            fetchUsers(); 
+            // Feedback sukses ke Admin
+            alert(`✅ SUKSES!\n\nPoin berhasil ${creditForm.type === 'add' ? 'ditambahkan ke' : 'dikurangi dari'} ${selectedUser.name}.\n\nNotifikasi & Email telah dikirim ke user.`);
+        } else {
+            alert("Gagal mengupdate poin.");
+        }
+    } catch(err) { 
+        console.error(err);
+        alert("Terjadi kesalahan server.");
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   // HISTORY LOG
@@ -111,11 +132,10 @@ export default function ManageUsersPage() {
     setSelectedUser(user); 
     setModalType('history'); 
     setLoadingHistory(true);
-    setUserHistory([]); // Reset dulu biar ga muncul history user sebelumnya
+    setUserHistory([]); 
     try {
         const res = await fetch(`/api/admin/users/history?userId=${user._id}`);
         const data = await res.json();
-        // Pastikan format array agar map tidak error
         setUserHistory(Array.isArray(data) ? data : (data.history || []));
     } catch (err) { alert("Gagal ambil history"); } finally { setLoadingHistory(false); }
   };
@@ -241,7 +261,9 @@ export default function ManageUsersPage() {
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editForm.isPremium ? 'left-7' : 'left-1'}`} />
                         </button>
                     </div>
-                    <button onClick={handleUpdateUser} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl">Simpan Perubahan</button>
+                    <button disabled={isSubmitting} onClick={handleUpdateUser} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl disabled:opacity-50">
+                        {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
                 </div>
             </div>
         </div>
@@ -304,7 +326,9 @@ export default function ManageUsersPage() {
                         <label className="text-[10px] font-normal text-slate-400 uppercase tracking-widest block mb-2 px-1">Jumlah Poin</label>
                         <input type="number" className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-2xl text-center outline-none focus:border-blue-500" value={creditForm.amount} onChange={(e) => setCreditForm({...creditForm, amount: e.target.value})} />
                     </div>
-                    <button onClick={handleUpdateCredit} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-600 transition-all">Konfirmasi Poin</button>
+                    <button disabled={isSubmitting} onClick={handleUpdateCredit} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-emerald-600 transition-all disabled:opacity-50">
+                        {isSubmitting ? 'Mengirim...' : 'Konfirmasi Poin'}
+                    </button>
                 </div>
             </div>
         </div>
