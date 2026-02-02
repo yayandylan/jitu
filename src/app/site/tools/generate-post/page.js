@@ -70,13 +70,16 @@ export default function SocialMediaCreator() {
     }));
   }, [topic, headline, caption, slides, themeLabel, aspectRatio, aiThemeColor, aiArtStyle, postMode]);
 
-  // Efek: Mengisi Input Manual
+  // Efek: Mengisi Input Manual Otomatis
   useEffect(() => {
       const targetIndex = slides.length; 
       if (targetIndex === 0) {
+          // Jika belum ada slide, manual title diisi Headline utama
           setManualSlideTitle(headline);
       } else {
+          // Jika sudah ada slide (misal slide ke-2), ambil data dari AI index ke-0 dst
           const aiIndex = targetIndex - 1; 
+          
           // Hanya isi otomatis jika mode carousel & data AI tersedia
           if (postMode === 'carousel' && slidesContentAi[aiIndex]) {
               setManualSlideTitle(slidesContentAi[aiIndex].title);
@@ -122,6 +125,7 @@ export default function SocialMediaCreator() {
     if (!topic) return;
     
     setLoadingText(true);
+    // Reset Data Lama
     setCaption(""); setHeadline(""); setVisualPrompt(""); 
     setSlides([]); setSlidesContentAi([]); 
     setAiThemeColor(""); setAiArtStyle("");
@@ -133,7 +137,7 @@ export default function SocialMediaCreator() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             prompt: topic,
-            mode: postMode // Kirim mode ke backend
+            mode: postMode // Kirim mode ke backend agar output AI sesuai
         }) 
       });
       
@@ -166,7 +170,7 @@ export default function SocialMediaCreator() {
     }
   };
 
-  // --- 2. GENERATE IMAGE (MODE AWARE) ---
+  // --- 2. GENERATE IMAGE (LOGIKA PENTING) ---
   const handleGenerateImage = async () => {
     const promptToUse = visualPrompt || topic;
     if (!promptToUse) return;
@@ -177,17 +181,21 @@ export default function SocialMediaCreator() {
     let textPayload = {};
     let customVisualPayload = ""; 
 
+    // Logika Payload Berdasarkan Slide
     if (currentSlideIndex === 0) {
-        // Slide 1 (Cover)
+        // Slide 1 (Cover) - Pakai Headline & Visual Prompt Utama
         textPayload = { title: headline }; 
         customVisualPayload = visualPrompt; 
     } else {
-        // Slide 2+
+        // Slide 2+ (Content) - Pakai Input Manual (yang sudah auto-fill)
         textPayload = { slideTitle: manualSlideTitle, slideBody: manualSlideBody };
+        
+        // Ambil visual prompt spesifik per slide jika ada dari AI
         const aiIndex = currentSlideIndex - 1;
         if (slidesContentAi[aiIndex] && slidesContentAi[aiIndex].visual) {
             customVisualPayload = slidesContentAi[aiIndex].visual;
         } else {
+            // Fallback visual
             customVisualPayload = `${visualPrompt}, different angle, scene number ${currentSlideIndex}`;
         }
     }
@@ -201,7 +209,7 @@ export default function SocialMediaCreator() {
             theme: themeLabel,
             ratio: aspectRatio,
             slideIndex: currentSlideIndex,
-            customVisual: customVisualPayload,
+            customVisual: customVisualPayload, // Prompt visual spesifik
             themeColor: aiThemeColor, 
             artStyle: aiArtStyle,
             ...textPayload 
@@ -212,17 +220,17 @@ export default function SocialMediaCreator() {
       if (res.ok && json.imageUrl) {
         const newSlide = { id: Date.now(), url: json.imageUrl };
         
-        // LOGIKA MODE: Single = Replace, Carousel = Append
+        // --- LOGIKA MODE: Single = Replace, Carousel = Append ---
         if (postMode === 'single') {
-            setSlides([newSlide]);
+            setSlides([newSlide]); // Ganti total
             setActiveSlideIndex(0);
         } else {
-            const updatedSlides = [...slides, newSlide];
+            const updatedSlides = [...slides, newSlide]; // Tambah ke belakang
             setSlides(updatedSlides);
-            setActiveSlideIndex(updatedSlides.length - 1); 
+            setActiveSlideIndex(updatedSlides.length - 1); // Pindah ke slide baru
         }
         
-        // Reset input manual
+        // Reset/Siapkan input manual untuk slide berikutnya (Carousel only)
         if(postMode === 'carousel') {
             const nextAiIndex = currentSlideIndex; 
             if (slidesContentAi[nextAiIndex]) {
@@ -233,7 +241,7 @@ export default function SocialMediaCreator() {
             }
         }
 
-        // Auto Save History
+        // Auto Save History (Hanya saat generate cover/single pertama kali)
         if(slides.length === 0 || postMode === 'single') {
             fetch('/api/history/social-post', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ topic, headline, caption, imageUrl: json.imageUrl, theme: themeLabel, ratio: aspectRatio })}).then(()=>fetchHistory());
         }
@@ -257,6 +265,7 @@ export default function SocialMediaCreator() {
 
   const handleNativeShare = async () => { /*...*/ };
   const handlePostToFB = async () => { alert("Coming Soon"); };
+  
   const HistoryList = () => ( <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">{historyList.map(item=>(<div key={item._id} onClick={()=>handleLoadHistory(item)} className="p-2 bg-white border hover:bg-slate-50 rounded-lg cursor-pointer flex gap-3 items-center"><div className="w-10 h-10 bg-slate-200 rounded overflow-hidden shrink-0"><img src={item.imageUrl} className="w-full h-full object-cover"/></div><div className="flex-1 min-w-0"><p className="text-[10px] font-bold truncate text-slate-700">{item.headline}</p></div></div>))}</div> );
 
   const isSlideOne = slides.length === 0;

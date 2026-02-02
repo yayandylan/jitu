@@ -13,10 +13,8 @@ async function isAdminAuthorized() {
   if (!token) return false;
   try {
     const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET || 'rahasia_jitu');
-    // Cek Role di Token
     if (decoded.role === 'admin') return true;
     
-    // Cek Role di DB (Double Check)
     await connectDB();
     const user = await User.findById(decoded.userId);
     return user && user.role === 'admin';
@@ -25,7 +23,7 @@ async function isAdminAuthorized() {
   }
 }
 
-// --- LOGIKA UTAMA SEEDING (DIPISAH AGAR BISA DIPANGGIL GET & POST) ---
+// --- LOGIKA UTAMA SEEDING ---
 async function runSeed() {
   // 1. CEK IZIN ADMIN
   if (!(await isAdminAuthorized())) {
@@ -35,14 +33,14 @@ async function runSeed() {
   try {
     await connectDB();
 
-    // DAFTAR MASTER TOOLS LENGKAP
+    // DAFTAR MASTER TOOLS (UPDATED SLUGS & MODELS)
     const tools = [
       {
         slug: 'riset-produk',
         name: 'Riset Produk Winning',
         category: 'TOOLS UTAMA',
         creditCost: 50,
-        aiModel: 'openai/gpt-4o-mini',
+        aiModel: 'google/gemini-2.0-flash-exp:free', // Hemat biaya
         isActive: true
       },
       {
@@ -50,7 +48,7 @@ async function runSeed() {
         name: 'Validasi Market',
         category: 'TOOLS UTAMA',
         creditCost: 50,
-        aiModel: 'openai/gpt-4o-mini',
+        aiModel: 'google/gemini-2.0-flash-exp:free',
         isActive: true
       },
       {
@@ -58,7 +56,7 @@ async function runSeed() {
         name: 'Magic Ad Script',
         category: 'TOOLS UTAMA',
         creditCost: 30,
-        aiModel: 'openai/gpt-4o-mini', 
+        aiModel: 'google/gemini-2.0-flash-exp:free', 
         isActive: true
       },
       {
@@ -66,15 +64,16 @@ async function runSeed() {
         name: 'Landing Page Builder',
         category: 'TOOLS UTAMA',
         creditCost: 80,
-        aiModel: 'openai/gpt-4o', 
+        aiModel: 'openai/gpt-4o', // Tetap GPT-4o untuk kualitas copy LP
         isActive: true
       },
+      // --- UPDATE: AD REVIEW (SLUG BARU) ---
       {
-        slug: 'audit-iklan-lp',
-        name: 'Audit Funnel (LP vs Ads)',
+        slug: 'ad-review', // Dulu audit-iklan-lp
+        name: 'Ad & LP Reviewer',
         category: 'TOOLS VISION',
-        creditCost: 75,
-        aiModel: 'openai/gpt-4o', 
+        creditCost: 80,
+        aiModel: 'google/gemini-2.0-flash-exp:free', 
         isActive: true
       },
       {
@@ -82,7 +81,7 @@ async function runSeed() {
         name: 'Analisis Dashboard Iklan',
         category: 'TOOLS VISION',
         creditCost: 75,
-        aiModel: 'openai/gpt-4o', 
+        aiModel: 'google/gemini-2.0-flash-exp:free', 
         isActive: true
       },
       {
@@ -93,7 +92,6 @@ async function runSeed() {
         aiModel: 'openai/gpt-3.5-turbo',
         isActive: true
       },
-      // --- TOOL PENTING UNTUK GAMBAR ---
       {
         slug: 'generate-image', 
         name: 'AI Image Generator',
@@ -102,18 +100,18 @@ async function runSeed() {
         aiModel: 'black-forest-labs/flux-1-schnell',
         isActive: true 
       },
-      // --- TOOL PENTING UNTUK FB AUTOPILOT ---
+      // --- UPDATE: GENERATE POST (SLUG BARU) ---
       {
-        slug: 'fb-autopilot', 
-        name: 'FB Autopilot Creator',
+        slug: 'generate-post', // Dulu fb-autopilot
+        name: 'Generate Post (Sosmed)',
         category: 'AGENCY TOOLS',
-        creditCost: 150, 
-        aiModel: 'openai/gpt-4o-mini', 
+        creditCost: 50, 
+        aiModel: 'google/gemini-2.0-flash-exp:free', 
         isActive: true
       },
     ];
 
-    // LAKUKAN OPERASI BULK WRITE (Update jika ada, Insert jika baru)
+    // LAKUKAN OPERASI BULK WRITE
     const operations = tools.map(tool => ({
       updateOne: {
         filter: { slug: tool.slug },
@@ -129,7 +127,7 @@ async function runSeed() {
 
     return NextResponse.json({ 
       success: true,
-      message: `Database berhasil di-update!`,
+      message: `Database Tools berhasil di-refresh!`,
       details: {
         total: tools.length,
         modified: result.modifiedCount,
@@ -145,7 +143,6 @@ async function runSeed() {
 }
 
 // --- EXPORT METHOD GET & POST ---
-// Agar Bapak bisa membukanya lewat Browser (GET) atau Postman (POST)
 export async function GET() {
   return runSeed();
 }

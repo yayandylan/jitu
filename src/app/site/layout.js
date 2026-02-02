@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }) {
     { section: 'SOCIAL MEDIA' },
     { 
         name: 'Generate Post', 
-        href: '/site/tools/fb-autopilot', 
+        href: '/site/tools/generate-post', 
         icon: <Share2 size={20} />, 
         badge: 'NEW', 
         isFree: false // PREMIUM ONLY
